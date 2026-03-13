@@ -1,4 +1,4 @@
-import type { DisposeFunction, SubscriberCallback, WatchGlobalOptions } from './types.js';
+import type { DisposeFunction, SubscriberCallback, WindotWatchrOptions } from './types.js';
 import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from './types.js';
 import { dispatchWatcherEvent } from './core/event-dispatcher.js';
 import { watch } from './core/global-watcher.js';
@@ -8,7 +8,7 @@ export type {
   DisposeFunction,
   SubscriberCallback,
   WatcherState,
-  WatchGlobalOptions,
+  WindotWatchrOptions,
 } from './types.js';
 
 /**
@@ -77,7 +77,7 @@ const noop: DisposeFunction = () => {};
 export function watchGlobal<T = unknown>(
   path: string,
   callback: SubscriberCallback<T>,
-  options?: WatchGlobalOptions,
+  options?: WindotWatchrOptions,
 ): DisposeFunction {
   if (!isBrowser) {
     return noop;
@@ -132,7 +132,7 @@ export function watchGlobal<T = unknown>(
  */
 export function waitForGlobal<T = unknown>(
   path: string,
-  options?: WatchGlobalOptions,
+  options?: WindotWatchrOptions,
 ): Promise<T> {
   if (!isBrowser) {
     return Promise.reject(

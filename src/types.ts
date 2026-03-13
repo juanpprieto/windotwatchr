@@ -1,8 +1,20 @@
 /**
- * Options for watchGlobal / waitForGlobal.
+ * Configuration options for windotwatchr watchers.
+ *
+ * Shared by the imperative API (`watchGlobal`, `waitForGlobal`) and
+ * the React hooks (`useWindotWatchr`, `useWindotWatchrStatus`).
  * All fields defined upfront to avoid breaking changes.
+ *
+ * @example
+ * ```ts
+ * const opts: WindotWatchrOptions = {
+ *   timeout: 10_000,
+ *   retries: 3,
+ *   pollInterval: 200,
+ * };
+ * ```
  */
-export interface WatchGlobalOptions {
+export interface WindotWatchrOptions {
   /** Timeout in ms. No default — consumer must set explicitly. */
   timeout?: number;
 
@@ -22,7 +34,7 @@ export interface WatchGlobalOptions {
   ready?: (value: unknown) => boolean;
 }
 
-/** Cleanup function returned by watchGlobal. */
+/** Cleanup function returned by windotwatchr watchers. */
 export type DisposeFunction = () => void;
 
 /** Subscriber callback invoked when a watched path resolves. */
