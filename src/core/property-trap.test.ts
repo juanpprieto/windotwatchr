@@ -189,6 +189,58 @@ describe('installTrap', () => {
     }).not.toThrow();
   });
 
+  it('dispatches ww:warning when value is frozen', async () => {
+    const listener = vi.fn();
+    window.addEventListener('ww:warning', listener);
+
+    const { dispose } = setup({ pollInterval: 0 });
+    (window as unknown as Record<string, unknown>)[ROOT] = Object.freeze({ api: true });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail).toEqual({ path: ROOT, reason: 'frozen' });
+
+    window.removeEventListener('ww:warning', listener);
+    dispose();
+  });
+
+  it('dispatches ww:warning when value is sealed', async () => {
+    const listener = vi.fn();
+    window.addEventListener('ww:warning', listener);
+
+    const { dispose } = setup({ pollInterval: 0 });
+    (window as unknown as Record<string, unknown>)[ROOT] = Object.seal({ api: true });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail).toEqual({ path: ROOT, reason: 'sealed' });
+
+    window.removeEventListener('ww:warning', listener);
+    dispose();
+  });
+
+  it('dispatches ww:warning when defineProperty fails', async () => {
+    const listener = vi.fn();
+    window.addEventListener('ww:warning', listener);
+
+    Object.defineProperty(window, ROOT, {
+      value: undefined,
+      writable: true,
+      configurable: false,
+    });
+
+    const subManager = new SubscriptionManager();
+    const proxyWrapper = createProxyWrapper(subManager);
+    const dispose = installTrap(ROOT, subManager, proxyWrapper, { pollInterval: 0 });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail).toEqual({ path: ROOT, reason: 'defineProperty failed' });
+
+    window.removeEventListener('ww:warning', listener);
+    dispose();
+  });
+
   it('falls back to polling when defineProperty fails', async () => {
     vi.useFakeTimers();
 

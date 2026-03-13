@@ -1,5 +1,6 @@
 import type { DisposeFunction } from '../types.js';
 import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from '../types.js';
+import { dispatchWatcherEvent } from './event-dispatcher.js';
 import type { ProxyWrapper } from './proxy-wrapper.js';
 import type { SubscriptionManager } from './subscription-manager.js';
 import { startPolling } from './poll-fallback.js';
@@ -110,6 +111,8 @@ export function installTrap(
         currentValue = proxied;
       } else {
         // Frozen/sealed — store raw value, start polling
+        const reason = Object.isFrozen(newValue) ? 'frozen' : 'sealed';
+        dispatchWatcherEvent('ww:warning', { path: rootKey, reason });
         currentValue = newValue;
         if (pollInterval > 0) {
           pollDispose = startPolling(rootKey, subManager, {
@@ -149,7 +152,7 @@ export function installTrap(
   } catch {
     // defineProperty failed — another script may have locked the property.
     // Fall back to polling for the root key.
-    // TODO: dispatch ww:warning CustomEvent with { path: rootKey, reason: 'defineProperty failed' }
+    dispatchWatcherEvent('ww:warning', { path: rootKey, reason: 'defineProperty failed' });
     if (pollInterval > 0) {
       pollDispose = startPolling(rootKey, subManager, {
         interval: pollInterval,

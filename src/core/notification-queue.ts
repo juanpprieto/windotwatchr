@@ -1,4 +1,5 @@
 import type { SubscriberCallback } from '../types.js';
+import { dispatchWatcherEvent } from './event-dispatcher.js';
 
 /**
  * Microtask scheduler with fallback for older environments.
@@ -26,8 +27,8 @@ const schedule: (fn: () => void) => void =
  * if a callback causes subscribe/unsubscribe during iteration.
  *
  * @param subscribers - Set of callbacks to invoke with the resolved value.
- * @param _path - Dot-notation path that resolved (e.g., `"Stripe.checkout"`).
- *   Reserved for `ww:error` CustomEvent detail.
+ * @param path - Dot-notation path that resolved (e.g., `"Stripe.checkout"`).
+ *   Included in `ww:ready` and `ww:error` CustomEvent detail.
  * @param value - The resolved value at the watched path.
  *
  * @example
@@ -42,16 +43,17 @@ const schedule: (fn: () => void) => void =
  */
 export function notifySubscribers(
   subscribers: Set<SubscriberCallback>,
-  _path: string,
+  path: string,
   value: unknown,
 ): void {
   const snapshot = [...subscribers];
   schedule(() => {
+    dispatchWatcherEvent('ww:ready', { path, value });
     for (const callback of snapshot) {
       try {
         callback(value);
-      } catch {
-        // TODO: dispatch ww:error CustomEvent with { path, error }
+      } catch (error) {
+        dispatchWatcherEvent('ww:error', { path, error });
       }
     }
   });

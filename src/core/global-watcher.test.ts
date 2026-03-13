@@ -175,6 +175,297 @@ describe('GlobalWatcher (watch)', () => {
   });
 });
 
+describe('watch — timeout + retry', () => {
+  const ROOT = '__ww_timeout_test__';
+
+  afterEach(() => {
+    resetRegistry();
+    try {
+      delete (window as unknown as Record<string, unknown>)[ROOT];
+    } catch {
+      // non-configurable fallback
+    }
+  });
+
+  it('fires ww:timeout event after configured ms', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 200, pollInterval: 0 });
+
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail.path).toBe(ROOT);
+    expect(event.detail.attempts).toBe(0);
+    expect(event.detail.elapsed).toBe(200);
+
+    window.removeEventListener('ww:timeout', listener);
+    dispose();
+    vi.useRealTimers();
+  });
+
+  it('watcher stays alive after timeout (does not auto-dispose)', async () => {
+    vi.useFakeTimers();
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 100, pollInterval: 0 });
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(cb).not.toHaveBeenCalled();
+
+    // Assign value AFTER timeout — watcher is still subscribed
+    (window as unknown as Record<string, unknown>)[ROOT] = { late: true };
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    dispose();
+    vi.useRealTimers();
+  });
+
+  it('retry re-checks at pollInterval after timeout', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 100, retries: 2, pollInterval: 50 });
+
+    // Advance past timeout
+    await vi.advanceTimersByTimeAsync(100);
+    expect(listener).toHaveBeenCalledTimes(1); // initial timeout
+
+    // Advance one retry interval — value still not there
+    await vi.advanceTimersByTimeAsync(50);
+    expect(listener).toHaveBeenCalledTimes(2); // retry 1
+
+    window.removeEventListener('ww:timeout', listener);
+    dispose();
+    vi.useRealTimers();
+  });
+
+  it('retry resolves if value appears during retry window', async () => {
+    vi.useFakeTimers();
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 100, retries: 3, pollInterval: 50 });
+
+    await vi.advanceTimersByTimeAsync(100); // timeout fires
+
+    // Set value before first retry fires
+    (window as unknown as Record<string, unknown>)[ROOT] = { found: true };
+
+    await vi.advanceTimersByTimeAsync(50); // retry fires, finds value
+    await Promise.resolve();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    dispose();
+    vi.useRealTimers();
+  });
+
+  it('all retries exhausted — watcher still in timeout state', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 100, retries: 2, pollInterval: 50 });
+
+    // timeout + 2 retries
+    await vi.advanceTimersByTimeAsync(100); // timeout
+    await vi.advanceTimersByTimeAsync(50);  // retry 1
+    await vi.advanceTimersByTimeAsync(50);  // retry 2
+
+    // 1 initial timeout + 2 retries = 3 events
+    expect(listener).toHaveBeenCalledTimes(3);
+    expect(cb).not.toHaveBeenCalled();
+
+    window.removeEventListener('ww:timeout', listener);
+    dispose();
+    vi.useRealTimers();
+  });
+
+  it('dispose during retry window stops further retry events', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 100, retries: 5, pollInterval: 50 });
+
+    // Let timeout fire
+    await vi.advanceTimersByTimeAsync(100);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // Dispose during retry window
+    dispose();
+
+    // Advance past all remaining retries — no more events
+    await vi.advanceTimersByTimeAsync(500);
+    expect(listener).toHaveBeenCalledTimes(1); // still just the initial one
+
+    window.removeEventListener('ww:timeout', listener);
+    vi.useRealTimers();
+  });
+
+  it('trap-based resolution during retry window cancels remaining retries', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 100, retries: 5, pollInterval: 50 });
+
+    // Let timeout fire
+    await vi.advanceTimersByTimeAsync(100);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // Value arrives via trap (defineProperty setter), not retry poll
+    (window as unknown as Record<string, unknown>)[ROOT] = { fromTrap: true };
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    // Advance past remaining retries — no more timeout events
+    await vi.advanceTimersByTimeAsync(300);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener('ww:timeout', listener);
+    dispose();
+    vi.useRealTimers();
+  });
+
+  it('ww:ready fires for already-existing values (immediate resolve)', async () => {
+    vi.useFakeTimers();
+    (window as unknown as Record<string, unknown>)[ROOT] = { preloaded: true };
+
+    const readyListener = vi.fn();
+    window.addEventListener('ww:ready', readyListener);
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb);
+
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(readyListener).toHaveBeenCalledTimes(1);
+    const event = readyListener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail.path).toBe(ROOT);
+
+    window.removeEventListener('ww:ready', readyListener);
+    dispose();
+    vi.useRealTimers();
+  });
+
+  it('timeout cleared when value resolves before timeout', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { timeout: 200, pollInterval: 0 });
+
+    // Assign value before timeout
+    (window as unknown as Record<string, unknown>)[ROOT] = { early: true };
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    // Advance past timeout — should NOT fire
+    await vi.advanceTimersByTimeAsync(200);
+    expect(listener).not.toHaveBeenCalled();
+
+    window.removeEventListener('ww:timeout', listener);
+    dispose();
+    vi.useRealTimers();
+  });
+});
+
+describe('watch — AbortSignal', () => {
+  const ROOT = '__ww_abort_test__';
+
+  afterEach(() => {
+    resetRegistry();
+    try {
+      delete (window as unknown as Record<string, unknown>)[ROOT];
+    } catch {
+      // non-configurable fallback
+    }
+  });
+
+  it('abort() calls dispose — stops notifications', async () => {
+    const ctrl = new AbortController();
+    const cb = vi.fn();
+    watch(ROOT, cb, { signal: ctrl.signal, pollInterval: 0 });
+
+    ctrl.abort();
+
+    (window as unknown as Record<string, unknown>)[ROOT] = 'val';
+    await Promise.resolve();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('already-aborted signal returns no-op dispose immediately', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort(); // abort before passing
+
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { signal: ctrl.signal, pollInterval: 0 });
+
+    (window as unknown as Record<string, unknown>)[ROOT] = 'val';
+    await Promise.resolve();
+    expect(cb).not.toHaveBeenCalled();
+
+    // Calling dispose again should be safe (idempotent)
+    expect(() => dispose()).not.toThrow();
+  });
+
+  it('abort during retry window stops retries', async () => {
+    vi.useFakeTimers();
+    const ctrl = new AbortController();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const cb = vi.fn();
+    watch(ROOT, cb, { signal: ctrl.signal, timeout: 100, retries: 5, pollInterval: 50 });
+
+    // Let timeout fire
+    await vi.advanceTimersByTimeAsync(100);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // Abort during retry window
+    ctrl.abort();
+
+    // Advance past remaining retries — should produce no more events
+    await vi.advanceTimersByTimeAsync(300);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(cb).not.toHaveBeenCalled();
+
+    window.removeEventListener('ww:timeout', listener);
+    vi.useRealTimers();
+  });
+
+  it('abort listener is removed on manual dispose', () => {
+    const ctrl = new AbortController();
+    const cb = vi.fn();
+    const dispose = watch(ROOT, cb, { signal: ctrl.signal, pollInterval: 0 });
+
+    dispose();
+
+    // Aborting after dispose should not throw or cause issues
+    expect(() => ctrl.abort()).not.toThrow();
+  });
+});
+
 describe('resetRegistry', () => {
   it('tears down all watchers', async () => {
     const cb = vi.fn();

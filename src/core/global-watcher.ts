@@ -1,5 +1,6 @@
 import type { DisposeFunction, SubscriberCallback, WatchGlobalOptions } from '../types.js';
 import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from '../types.js';
+import { dispatchWatcherEvent } from './event-dispatcher.js';
 import { createProxyWrapper } from './proxy-wrapper.js';
 import { installTrap } from './property-trap.js';
 import { resolvePath, startPolling } from './poll-fallback.js';
@@ -117,12 +118,14 @@ function teardownRootWatcher(rootKey: string, watcher: RootWatcher): void {
  * 2. Gets or creates a singleton RootWatcher for the root key.
  * 3. Subscribes the callback for the full path.
  * 4. If the value already exists, schedules a next-tick notification.
- * 5. Returns a dispose function that cleans up this subscription
+ * 5. Optionally starts a timeout timer and retry loop.
+ * 6. Optionally wires an AbortSignal to the dispose function.
+ * 7. Returns a dispose function that cleans up this subscription
  *    and tears down the RootWatcher when the last subscriber leaves.
  *
  * @param path - Dot-notation path on `window` (e.g., `"Stripe.checkout"`).
  * @param callback - Invoked with the value when the path is ready.
- * @param options - Configuration for timeout, polling, readiness, etc.
+ * @param options - Configuration for timeout, polling, readiness, signal, etc.
  * @returns Dispose function to remove this subscription.
  *
  * @example
@@ -143,6 +146,7 @@ export function watch(
   const [rootKey, subPath] = parsePath(path);
   const predicate = options.ready ?? defaultReadyPredicate;
   const pollInterval = options.pollInterval ?? DEFAULT_POLL_INTERVAL;
+  const hasTimeout = options.timeout !== undefined && options.timeout > 0;
 
   // Get or create singleton RootWatcher
   let watcher = registry.get(rootKey);
@@ -151,8 +155,25 @@ export function watch(
     registry.set(rootKey, watcher);
   }
 
+  // Timeout/retry state — declared before subscription so the
+  // wrapped callback can close over them.
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let retryId: ReturnType<typeof setTimeout> | null = null;
+  let resolved = false;
+
+  // Wrap callback to detect resolution and clear timeout/retry timers.
+  // When there's no timeout, use the raw callback to avoid overhead.
+  const effectiveCallback: SubscriberCallback = hasTimeout
+    ? (value) => {
+        resolved = true;
+        if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+        if (retryId) { clearTimeout(retryId); retryId = null; }
+        callback(value);
+      }
+    : callback;
+
   // Subscribe callback for the full path
-  const unsubscribe = watcher.subManager.subscribe(path, callback);
+  const unsubscribe = watcher.subManager.subscribe(path, effectiveCallback);
 
   // Check if the value already exists (late mount scenario).
   // Always resolve on next microtask to avoid Zalgo.
@@ -161,7 +182,10 @@ export function watch(
     if (!subPath) {
       // Root-level watch — value already exists
       if (predicate(currentRoot)) {
-        schedule(() => callback(currentRoot));
+        schedule(() => {
+          dispatchWatcherEvent('ww:ready', { path, value: currentRoot });
+          effectiveCallback(currentRoot);
+        });
       }
     } else {
       // Sub-path watch — resolve the full path
@@ -170,7 +194,10 @@ export function watch(
         path,
       );
       if (predicate(currentValue)) {
-        schedule(() => callback(currentValue));
+        schedule(() => {
+          dispatchWatcherEvent('ww:ready', { path, value: currentValue });
+          effectiveCallback(currentValue);
+        });
       } else if (pollInterval > 0 && !watcher.subPathPolls.has(path)) {
         // Value not ready yet — start polling for this sub-path.
         // The Proxy set trap will also catch it if it's assigned later,
@@ -184,13 +211,69 @@ export function watch(
     }
   }
 
-  // Return dispose function
+  // --- Timeout + Retry ---
+  if (hasTimeout) {
+    const timeout = options.timeout!;
+    const retries = options.retries ?? 0;
+    let attempts = 0;
+
+    const onTimeout = (): void => {
+      if (resolved) {
+        return;
+      }
+
+      dispatchWatcherEvent('ww:timeout', { path, attempts, elapsed: timeout });
+
+      if (attempts < retries) {
+        const retryInterval = pollInterval > 0 ? pollInterval : DEFAULT_POLL_INTERVAL;
+
+        const retryCheck = (): void => {
+          if (resolved) {
+            return;
+          }
+          attempts++;
+
+          const value = resolvePath(window, path);
+          if (predicate(value)) {
+            schedule(() => {
+              dispatchWatcherEvent('ww:ready', { path, value });
+              effectiveCallback(value);
+            });
+            return;
+          }
+
+          dispatchWatcherEvent('ww:timeout', { path, attempts, elapsed: timeout });
+
+          if (attempts < retries) {
+            retryId = setTimeout(retryCheck, retryInterval);
+          }
+        };
+
+        retryId = setTimeout(retryCheck, retryInterval);
+      }
+    };
+
+    timeoutId = setTimeout(onTimeout, timeout);
+  }
+
+  // --- Dispose ---
   let disposed = false;
-  return () => {
+
+  const dispose: DisposeFunction = () => {
     if (disposed) {
       return;
     }
     disposed = true;
+
+    // Clear timeout/retry timers
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (retryId) {
+      clearTimeout(retryId);
+      retryId = null;
+    }
 
     unsubscribe();
 
@@ -205,7 +288,23 @@ export function watch(
     if (watcher!.subManager.getSubscriberCount() === 0) {
       teardownRootWatcher(rootKey, watcher!);
     }
+
+    // Clean up abort listener
+    if (options.signal) {
+      options.signal.removeEventListener('abort', dispose);
+    }
   };
+
+  // --- AbortSignal ---
+  if (options.signal) {
+    if (options.signal.aborted) {
+      dispose();
+      return dispose;
+    }
+    options.signal.addEventListener('abort', dispose, { once: true });
+  }
+
+  return dispose;
 }
 
 /**

@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetRegistry } from './core/global-watcher.js';
 import { waitForGlobal, watchGlobal } from './index.js';
 
+// Helper type for window property access
+type WindowRecord = Record<string, unknown>;
+
 describe('watchGlobal', () => {
   const ROOT = '__ww_api_test__';
 
@@ -106,5 +109,150 @@ describe('waitForGlobal', () => {
     expect(() => {
       (window as unknown as Record<string, unknown>)[ROOT] = 'val2';
     }).not.toThrow();
+  });
+
+  it('rejects on timeout with descriptive Error', async () => {
+    vi.useFakeTimers();
+
+    const promise = waitForGlobal(ROOT, { timeout: 500, pollInterval: 0 });
+
+    // Attach rejection handler before advancing timers to avoid unhandled rejection
+    let rejectedError: Error | undefined;
+    promise.catch((err: Error) => { rejectedError = err; });
+
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(rejectedError).toBeDefined();
+    expect(rejectedError!.message).toBe(
+      `windotwatchr: timeout after 500ms waiting for "${ROOT}"`,
+    );
+
+    vi.useRealTimers();
+  });
+
+  it('resolves if value appears during retry window', async () => {
+    vi.useFakeTimers();
+
+    const promise = waitForGlobal(ROOT, {
+      timeout: 100,
+      retries: 3,
+      pollInterval: 50,
+    });
+
+    // Advance past timeout
+    await vi.advanceTimersByTimeAsync(100);
+
+    // Set value before first retry
+    (window as unknown as WindowRecord)[ROOT] = 'during-retry';
+
+    // Advance past first retry
+    await vi.advanceTimersByTimeAsync(50);
+
+    const result = await promise;
+    expect(result).toBe('during-retry');
+
+    vi.useRealTimers();
+  });
+
+  it('rejects after all retries exhausted', async () => {
+    vi.useFakeTimers();
+
+    const promise = waitForGlobal(ROOT, {
+      timeout: 100,
+      retries: 2,
+      pollInterval: 50,
+    });
+
+    // Attach rejection handler before advancing timers to avoid unhandled rejection
+    let rejectedError: Error | undefined;
+    promise.catch((err: Error) => { rejectedError = err; });
+
+    // timeout + 2 retries
+    await vi.advanceTimersByTimeAsync(100 + 50 + 50);
+
+    expect(rejectedError).toBeDefined();
+    expect(rejectedError!.message).toBe(
+      `windotwatchr: timeout after 100ms waiting for "${ROOT}"`,
+    );
+
+    vi.useRealTimers();
+  });
+
+  it('with AbortSignal: abort rejects', async () => {
+    const ctrl = new AbortController();
+    const promise = waitForGlobal(ROOT, { signal: ctrl.signal });
+
+    ctrl.abort();
+
+    await expect(promise).rejects.toThrow('windotwatchr: aborted');
+  });
+
+  it('with already-aborted signal rejects immediately', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+
+    await expect(
+      waitForGlobal(ROOT, { signal: ctrl.signal }),
+    ).rejects.toThrow('windotwatchr: aborted');
+  });
+
+  it('dispatches ww:timeout event during timeout', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    window.addEventListener('ww:timeout', listener);
+
+    const promise = waitForGlobal(ROOT, { timeout: 200, pollInterval: 0 });
+    let rejectedError: Error | undefined;
+    promise.catch((err: Error) => { rejectedError = err; });
+
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail.path).toBe(ROOT);
+    expect(rejectedError).toBeDefined();
+
+    window.removeEventListener('ww:timeout', listener);
+    vi.useRealTimers();
+  });
+
+  it('cleans up abort listener on normal resolution', async () => {
+    const ctrl = new AbortController();
+    const removeSpy = vi.spyOn(ctrl.signal, 'removeEventListener');
+
+    const promise = waitForGlobal(ROOT, { signal: ctrl.signal });
+
+    (window as unknown as WindowRecord)[ROOT] = 'resolved';
+    const result = await promise;
+
+    expect(result).toBe('resolved');
+    expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+
+    removeSpy.mockRestore();
+  });
+});
+
+describe('watchGlobal — AbortSignal', () => {
+  const ROOT = '__ww_watch_abort__';
+
+  afterEach(() => {
+    resetRegistry();
+    try {
+      delete (window as unknown as WindowRecord)[ROOT];
+    } catch {
+      // non-configurable fallback
+    }
+  });
+
+  it('abort stops notifications', async () => {
+    const ctrl = new AbortController();
+    const cb = vi.fn();
+    watchGlobal(ROOT, cb, { signal: ctrl.signal, pollInterval: 0 });
+
+    ctrl.abort();
+
+    (window as unknown as WindowRecord)[ROOT] = 'val';
+    await Promise.resolve();
+    expect(cb).not.toHaveBeenCalled();
   });
 });

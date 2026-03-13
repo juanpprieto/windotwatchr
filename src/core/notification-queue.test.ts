@@ -1,8 +1,12 @@
 import type { SubscriberCallback } from '../types.js';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { notifySubscribers } from './notification-queue.js';
 
 describe('notifySubscribers', () => {
+  afterEach(() => {
+    // Remove any leftover event listeners
+  });
+
   it('delivers value to all subscribers asynchronously', async () => {
     const cb1 = vi.fn();
     const cb2 = vi.fn();
@@ -79,5 +83,57 @@ describe('notifySubscribers', () => {
     // Flush all microtasks
     await new Promise((r) => setTimeout(r, 10));
     expect(order).toEqual(['cb1', 'cb2']);
+  });
+
+  it('dispatches ww:error when a subscriber throws', async () => {
+    const error = new Error('boom');
+    const cb = vi.fn(() => { throw error; });
+    const subs = new Set<SubscriberCallback>([cb]);
+
+    const listener = vi.fn();
+    window.addEventListener('ww:error', listener);
+
+    notifySubscribers(subs, 'SDK', 'val');
+    await Promise.resolve();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail).toEqual({ path: 'SDK', error });
+
+    window.removeEventListener('ww:error', listener);
+  });
+
+  it('dispatches ww:ready on every notification call', async () => {
+    const cb = vi.fn();
+    const subs = new Set<SubscriberCallback>([cb]);
+
+    const listener = vi.fn();
+    window.addEventListener('ww:ready', listener);
+
+    notifySubscribers(subs, 'Stripe', { v: 1 });
+    await Promise.resolve();
+
+    notifySubscribers(subs, 'Stripe', { v: 2 });
+    await Promise.resolve();
+
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    window.removeEventListener('ww:ready', listener);
+  });
+
+  it('ww:ready detail contains path and value', async () => {
+    const cb = vi.fn();
+    const subs = new Set<SubscriberCallback>([cb]);
+
+    const listener = vi.fn();
+    window.addEventListener('ww:ready', listener);
+
+    notifySubscribers(subs, 'Stripe.checkout', { sdk: true });
+    await Promise.resolve();
+
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail).toEqual({ path: 'Stripe.checkout', value: { sdk: true } });
+
+    window.removeEventListener('ww:ready', listener);
   });
 });
