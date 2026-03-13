@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Bun
+bun.lockb
+
+# Test coverage
+coverage/
+
+# Vitest
+__snapshots__/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Vim / Neovim / LazyVim
+*.swp
+*.swo
+*.swn
+*~
+.exrc
+.nvimrc
+Session.vim
+.neoconf.json
+
+# Logs
+*.log
+
+# React demo
+demos/react/.next/
+demos/react/dist/
+
+# Vue demo
+demos/vue/.nuxt/
+demos/vue/dist/
+
+# Temp
+tmp/
+.cache/

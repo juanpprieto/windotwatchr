@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc", "import", "unicorn", "vitest", "promise"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
+  },
+  "rules": {
+    "no-console": "error",
+    "curly": "warn",
+    "eqeqeq": "warn",
+
+    "unicorn/prefer-global-this": "off",
+    "unicorn/no-null": "off",
+    "no-duplicate-imports": "off",
+    "promise/avoid-new": "off",
+    "promise/prefer-await-to-callbacks": "off"
+  }
+}
