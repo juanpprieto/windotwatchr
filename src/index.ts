@@ -1,7 +1,7 @@
 import type { DisposeFunction, SubscriberCallback, WindotWatchrOptions } from './types.js';
 import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from './types.js';
 import { dispatchWatcherEvent } from './core/event-dispatcher.js';
-import { watch } from './core/global-watcher.js';
+import { watch } from './core/windot-watcher.js';
 import { resolvePath } from './core/poll-fallback.js';
 
 export type {
@@ -39,9 +39,9 @@ const noop: DisposeFunction = () => {};
  *
  * @example
  * ```ts
- * import { watchGlobal } from 'windotwatchr';
+ * import { watchWindot } from 'windotwatchr';
  *
- * const dispose = watchGlobal<StripeCheckout>('Stripe.checkout', (checkout) => {
+ * const dispose = watchWindot<StripeCheckout>('Stripe.checkout', (checkout) => {
  *   checkout.redirectToCheckout({ sessionId: '...' });
  * });
  *
@@ -52,7 +52,7 @@ const noop: DisposeFunction = () => {};
  * @example
  * ```ts
  * // With timeout and retries:
- * watchGlobal('Stripe', callback, {
+ * watchWindot('Stripe', callback, {
  *   timeout: 10_000,
  *   retries: 3,
  * });
@@ -62,19 +62,19 @@ const noop: DisposeFunction = () => {};
  * ```ts
  * // With AbortSignal — abort() is equivalent to dispose():
  * const ctrl = new AbortController();
- * watchGlobal('google.maps', callback, { signal: ctrl.signal });
+ * watchWindot('google.maps', callback, { signal: ctrl.signal });
  * ctrl.abort();
  * ```
  *
  * @example
  * ```ts
  * // Custom readiness predicate:
- * watchGlobal('MySDK', callback, {
+ * watchWindot('MySDK', callback, {
  *   ready: (v) => typeof v === 'object' && v !== null && 'init' in v,
  * });
  * ```
  */
-export function watchGlobal<T = unknown>(
+export function watchWindot<T = unknown>(
   path: string,
   callback: SubscriberCallback<T>,
   options?: WindotWatchrOptions,
@@ -86,7 +86,7 @@ export function watchGlobal<T = unknown>(
 }
 
 /**
- * Promise-based variant of {@link watchGlobal}.
+ * Promise-based variant of `watchWindot`.
  *
  * Resolves when the value at `path` passes the readiness predicate.
  * Automatically disposes the internal watcher on resolution.
@@ -97,7 +97,7 @@ export function watchGlobal<T = unknown>(
  *
  * In non-browser environments (Node.js, Cloudflare Workers, Vercel Edge),
  * rejects immediately with an `Error`. This prevents silent hangs from
- * `await waitForGlobal('Stripe')` in SSR contexts where there is no
+ * `await waitForWindot('Stripe')` in SSR contexts where there is no
  * timeout default.
  *
  * @typeParam T - The expected type of the resolved value.
@@ -107,16 +107,16 @@ export function watchGlobal<T = unknown>(
  *
  * @example
  * ```ts
- * import { waitForGlobal } from 'windotwatchr';
+ * import { waitForWindot } from 'windotwatchr';
  *
- * const maps = await waitForGlobal<typeof google.maps>('google.maps');
+ * const maps = await waitForWindot<typeof google.maps>('google.maps');
  * const map = new maps.Map(element, { center, zoom: 12 });
  * ```
  *
  * @example
  * ```ts
  * // With timeout — rejects if Stripe doesn't load within 10 seconds:
- * const stripe = await waitForGlobal<Stripe>('Stripe', {
+ * const stripe = await waitForWindot<Stripe>('Stripe', {
  *   timeout: 10_000,
  *   retries: 3,
  * });
@@ -126,11 +126,11 @@ export function watchGlobal<T = unknown>(
  * ```ts
  * // With AbortSignal — rejects on abort:
  * const ctrl = new AbortController();
- * const stripe = waitForGlobal<Stripe>('Stripe', { signal: ctrl.signal });
+ * const stripe = waitForWindot<Stripe>('Stripe', { signal: ctrl.signal });
  * ctrl.abort(); // rejects with "windotwatchr: aborted"
  * ```
  */
-export function waitForGlobal<T = unknown>(
+export function waitForWindot<T = unknown>(
   path: string,
   options?: WindotWatchrOptions,
 ): Promise<T> {
@@ -148,7 +148,7 @@ export function waitForGlobal<T = unknown>(
     let settled = false;
 
     // Strip timeout/retries/signal from options passed to watch() —
-    // waitForGlobal handles its own timeout/retry to control the Promise.
+    // waitForWindot handles its own timeout/retry to control the Promise.
     const { timeout: _t, retries: _r, signal: _s, ...watchOptions } = options ?? {};
 
     /** Clean up abort listener when settling via any path. */

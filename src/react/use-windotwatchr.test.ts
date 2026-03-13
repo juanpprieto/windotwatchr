@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
 import React from 'react';
-import { resetRegistry } from '../core/global-watcher.js';
+import { resetRegistry } from '../core/windot-watcher.js';
 import { useWindotWatchr } from './use-windotwatchr.js';
 
 /** Typed access to windot properties on `window`. */
@@ -110,7 +110,7 @@ describe('useWindotWatchr (single path)', () => {
   });
 
   it('does not re-subscribe when options object identity changes', async () => {
-    const watchSpy = vi.spyOn(await import('../index.js'), 'watchGlobal');
+    const watchSpy = vi.spyOn(await import('../index.js'), 'watchWindot');
 
     const { rerender } = renderHook(
       ({ opts }) => useWindotWatchr(ROOT, opts),

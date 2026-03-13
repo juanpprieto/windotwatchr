@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
 import React from 'react';
-import { resetRegistry } from '../core/global-watcher.js';
+import { resetRegistry } from '../core/windot-watcher.js';
 import { useWindotWatchrStatus } from './use-windotwatchr-status.js';
 
 /** Typed access to windot properties on `window`. */

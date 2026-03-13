@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { WindotWatchrOptions, WatcherState } from '../types.js';
-import { watchGlobal } from '../index.js';
+import { watchWindot } from '../index.js';
 
 /**
  * Result object returned by `useWindotWatchrStatus`.
@@ -98,7 +98,7 @@ export function useWindotWatchrStatus<T = unknown>(
     window.addEventListener('ww:timeout', onTimeout);
     window.addEventListener('ww:error', onError);
 
-    const dispose = watchGlobal<T>(path, (val) => {
+    const dispose = watchWindot<T>(path, (val) => {
       setValue(val);
     }, optionsRef.current);
 

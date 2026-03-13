@@ -154,7 +154,7 @@ export class SubscriptionManager {
   /**
    * Total number of individual subscriptions across all paths.
    *
-   * Used by GlobalWatcher for singleton ref-counting. When this
+   * Used by WindotWatcher for singleton ref-counting. When this
    * reaches 0, the PropertyTrap and ProxyWrapper for the root key
    * can be torn down.
    *

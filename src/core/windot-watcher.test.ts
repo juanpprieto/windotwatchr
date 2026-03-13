@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resetRegistry, watch } from './global-watcher.js';
+import { resetRegistry, watch } from './windot-watcher.js';
 
-describe('GlobalWatcher (watch)', () => {
+describe('WindotWatcher (watch)', () => {
   const ROOT = '__ww_gw_test__';
 
   afterEach(() => {

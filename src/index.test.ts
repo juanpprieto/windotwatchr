@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resetRegistry } from './core/global-watcher.js';
-import { waitForGlobal, watchGlobal } from './index.js';
+import { resetRegistry } from './core/windot-watcher.js';
+import { waitForWindot, watchWindot } from './index.js';
 
 // Helper type for window property access
 type WindowRecord = Record<string, unknown>;
 
-describe('watchGlobal', () => {
+describe('watchWindot', () => {
   const ROOT = '__ww_api_test__';
 
   afterEach(() => {
@@ -19,7 +19,7 @@ describe('watchGlobal', () => {
 
   it('notifies callback when window property is assigned', async () => {
     const cb = vi.fn();
-    const dispose = watchGlobal(ROOT, cb);
+    const dispose = watchWindot(ROOT, cb);
 
     (window as unknown as Record<string, unknown>)[ROOT] = { ready: true };
 
@@ -31,7 +31,7 @@ describe('watchGlobal', () => {
 
   it('returns a dispose function that stops notifications', async () => {
     const cb = vi.fn();
-    const dispose = watchGlobal(ROOT, cb);
+    const dispose = watchWindot(ROOT, cb);
     dispose();
 
     (window as unknown as Record<string, unknown>)[ROOT] = 'val';
@@ -42,7 +42,7 @@ describe('watchGlobal', () => {
   it('supports generic type parameter', async () => {
     interface MySDK { init(): void }
     const cb = vi.fn();
-    const dispose = watchGlobal<MySDK>(ROOT, cb as (value: MySDK) => void);
+    const dispose = watchWindot<MySDK>(ROOT, cb as (value: MySDK) => void);
 
     (window as unknown as Record<string, unknown>)[ROOT] = { init: () => {} };
 
@@ -54,7 +54,7 @@ describe('watchGlobal', () => {
 
   it('watches nested paths', async () => {
     const cb = vi.fn();
-    const dispose = watchGlobal(`${ROOT}.deep.path`, cb);
+    const dispose = watchWindot(`${ROOT}.deep.path`, cb);
 
     (window as unknown as Record<string, unknown>)[ROOT] = {};
     const sdk = (window as unknown as Record<string, unknown>)[ROOT] as Record<string, unknown>;
@@ -67,7 +67,7 @@ describe('watchGlobal', () => {
   });
 });
 
-describe('waitForGlobal', () => {
+describe('waitForWindot', () => {
   const ROOT = '__ww_wait_test__';
 
   afterEach(() => {
@@ -80,7 +80,7 @@ describe('waitForGlobal', () => {
   });
 
   it('resolves when property becomes available', async () => {
-    const promise = waitForGlobal<{ ok: boolean }>(ROOT);
+    const promise = waitForWindot<{ ok: boolean }>(ROOT);
 
     // Assign asynchronously
     setTimeout(() => {
@@ -94,12 +94,12 @@ describe('waitForGlobal', () => {
   it('resolves immediately (next tick) when value already exists', async () => {
     (window as unknown as Record<string, unknown>)[ROOT] = 'already';
 
-    const result = await waitForGlobal<string>(ROOT);
+    const result = await waitForWindot<string>(ROOT);
     expect(result).toBe('already');
   });
 
   it('auto-disposes the watcher on resolution', async () => {
-    const promise = waitForGlobal(ROOT);
+    const promise = waitForWindot(ROOT);
 
     (window as unknown as Record<string, unknown>)[ROOT] = 'val';
     const result = await promise;
@@ -114,7 +114,7 @@ describe('waitForGlobal', () => {
   it('rejects on timeout with descriptive Error', async () => {
     vi.useFakeTimers();
 
-    const promise = waitForGlobal(ROOT, { timeout: 500, pollInterval: 0 });
+    const promise = waitForWindot(ROOT, { timeout: 500, pollInterval: 0 });
 
     // Attach rejection handler before advancing timers to avoid unhandled rejection
     let rejectedError: Error | undefined;
@@ -133,7 +133,7 @@ describe('waitForGlobal', () => {
   it('resolves if value appears during retry window', async () => {
     vi.useFakeTimers();
 
-    const promise = waitForGlobal(ROOT, {
+    const promise = waitForWindot(ROOT, {
       timeout: 100,
       retries: 3,
       pollInterval: 50,
@@ -157,7 +157,7 @@ describe('waitForGlobal', () => {
   it('rejects after all retries exhausted', async () => {
     vi.useFakeTimers();
 
-    const promise = waitForGlobal(ROOT, {
+    const promise = waitForWindot(ROOT, {
       timeout: 100,
       retries: 2,
       pollInterval: 50,
@@ -180,7 +180,7 @@ describe('waitForGlobal', () => {
 
   it('with AbortSignal: abort rejects', async () => {
     const ctrl = new AbortController();
-    const promise = waitForGlobal(ROOT, { signal: ctrl.signal });
+    const promise = waitForWindot(ROOT, { signal: ctrl.signal });
 
     ctrl.abort();
 
@@ -192,7 +192,7 @@ describe('waitForGlobal', () => {
     ctrl.abort();
 
     await expect(
-      waitForGlobal(ROOT, { signal: ctrl.signal }),
+      waitForWindot(ROOT, { signal: ctrl.signal }),
     ).rejects.toThrow('windotwatchr: aborted');
   });
 
@@ -201,7 +201,7 @@ describe('waitForGlobal', () => {
     const listener = vi.fn();
     window.addEventListener('ww:timeout', listener);
 
-    const promise = waitForGlobal(ROOT, { timeout: 200, pollInterval: 0 });
+    const promise = waitForWindot(ROOT, { timeout: 200, pollInterval: 0 });
     let rejectedError: Error | undefined;
     promise.catch((err: Error) => { rejectedError = err; });
 
@@ -220,7 +220,7 @@ describe('waitForGlobal', () => {
     const ctrl = new AbortController();
     const removeSpy = vi.spyOn(ctrl.signal, 'removeEventListener');
 
-    const promise = waitForGlobal(ROOT, { signal: ctrl.signal });
+    const promise = waitForWindot(ROOT, { signal: ctrl.signal });
 
     (window as unknown as WindowRecord)[ROOT] = 'resolved';
     const result = await promise;
@@ -232,7 +232,7 @@ describe('waitForGlobal', () => {
   });
 });
 
-describe('watchGlobal — AbortSignal', () => {
+describe('watchWindot — AbortSignal', () => {
   const ROOT = '__ww_watch_abort__';
 
   afterEach(() => {
@@ -247,7 +247,7 @@ describe('watchGlobal — AbortSignal', () => {
   it('abort stops notifications', async () => {
     const ctrl = new AbortController();
     const cb = vi.fn();
-    watchGlobal(ROOT, cb, { signal: ctrl.signal, pollInterval: 0 });
+    watchWindot(ROOT, cb, { signal: ctrl.signal, pollInterval: 0 });
 
     ctrl.abort();
 

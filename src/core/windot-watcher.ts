@@ -308,7 +308,7 @@ export function watch(
 }
 
 /**
- * Reset the global watcher registry.
+ * Reset the windot watcher registry.
  *
  * Tears down all active RootWatchers and clears the registry.
  * Intended for testing only — not exported from the public API.

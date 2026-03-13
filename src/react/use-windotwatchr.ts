@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { WindotWatchrOptions } from '../types.js';
-import { watchGlobal } from '../index.js';
+import { watchWindot } from '../index.js';
 
 /**
  * React hook that watches one or more `window.*` property paths.
@@ -111,7 +111,7 @@ function useWindotWatchrSingle<T>(
 
   useEffect(() => {
     setValue(null);
-    const dispose = watchGlobal<T>(path, setValue, optionsRef.current);
+    const dispose = watchWindot<T>(path, setValue, optionsRef.current);
     return dispose;
   }, [path]);
 
@@ -165,7 +165,7 @@ function useWindotWatchrMany<K extends string>(
     });
 
     const disposers = currentPaths.map((p) =>
-      watchGlobal(p, (val) => {
+      watchWindot(p, (val) => {
         setValues((prev) => ({ ...prev, [p]: val }));
       }, optionsRef.current),
     );

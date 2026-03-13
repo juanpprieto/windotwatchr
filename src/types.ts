@@ -1,7 +1,7 @@
 /**
  * Configuration options for windotwatchr watchers.
  *
- * Shared by the imperative API (`watchGlobal`, `waitForGlobal`) and
+ * Shared by the imperative API (`watchWindot`, `waitForWindot`) and
  * the React hooks (`useWindotWatchr`, `useWindotWatchrStatus`).
  * All fields defined upfront to avoid breaking changes.
  *
