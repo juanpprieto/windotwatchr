@@ -1,5 +1,7 @@
 # windotwatchr
 
+
+
 > Detect `window.*` properties the moment they appear. No polling.
 
 - **~2.4KB gzipped.** React hook adds ~370B.
