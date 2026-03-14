@@ -1,6 +1,11 @@
 ---
 name: windotwatchr-expert
 description: "Expert for building with and contributing to windotwatchr — a zero-polling window.* property watcher. Covers the imperative API (watchWindot, waitForWindot), React hook (useWindotWatchr), event system (ww:ready, ww:timeout, ww:error, ww:warning), detection strategies (Proxy, poll, auto), timeout/retry/abort patterns, SSR safety, commerce use cases (payment SDKs, maps, analytics), type system, gotchas, and contributor workflows for both core engine and React binding."
+license: MIT
+compatibility: "Works with any AI coding agent that supports the Agent Skills specification."
+metadata:
+  author: juanpprieto
+  version: "0.1.0"
 argument-hint: "windotwatchr, watchWindot, waitForWindot, useWindotWatchr, ww:ready, ww:timeout, ww:error, ww:warning, proxy, poll, defineProperty, timeout, retries, abort, signal, dispose, SSR, react, hook, stripe, payments, maps, analytics, sdk, third-party, window, global, watcher, observer, subscribe, callback, promise, microtask, frozen, sealed, polling, fallback, contribute, test, types"
 ---
 
