@@ -28,14 +28,14 @@ Proxy nesting is lazy — nested proxies are only created when a subscriber actu
 
 ## Core API
 
-### `watchGlobal(path, callback, options?)`
+### `watchWindot(path, callback, options?)`
 
 Watch a `window` property path. Returns a `dispose` function.
 
 ```typescript
-import { watchGlobal } from 'windotwatchr';
+import { watchWindot } from 'windotwatchr';
 
-const dispose = watchGlobal<StripeCheckout>('Stripe.checkout', (checkout) => {
+const dispose = watchWindot<StripeCheckout>('Stripe.checkout', (checkout) => {
   // checkout is ready — use it
   checkout.redirectToCheckout({ sessionId: '...' });
 });
@@ -44,14 +44,14 @@ const dispose = watchGlobal<StripeCheckout>('Stripe.checkout', (checkout) => {
 dispose();
 ```
 
-### `waitForGlobal(path, options?)`
+### `waitForWindot(path, options?)`
 
 Promise-based variant. Resolves when the path is ready.
 
 ```typescript
-import { waitForGlobal } from 'windotwatchr';
+import { waitForWindot } from 'windotwatchr';
 
-const stripe = await waitForGlobal<Stripe>('Stripe', {
+const stripe = await waitForWindot<Stripe>('Stripe', {
   timeout: 10_000,
   retries: 3,
 });
@@ -60,7 +60,7 @@ const stripe = await waitForGlobal<Stripe>('Stripe', {
 ### Options
 
 ```typescript
-interface WatchGlobalOptions {
+interface WindotWatchrOptions {
   timeout?: number;                        // ms before timeout (no default — consumer sets)
   pollInterval?: number;                   // Fallback poll interval, default: 100ms, 0 to disable
   strategy?: 'proxy' | 'poll' | 'auto';   // Default: 'auto'
@@ -77,45 +77,26 @@ Framework wrappers are thin (~20 lines each) and shipped as subpath exports. The
 ### React — `windotwatchr/react`
 
 ```typescript
-import { useGlobal, useGlobalStatus } from 'windotwatchr/react';
+import { useWindotWatchr } from 'windotwatchr/react';
 
 function CheckoutButton() {
-  const checkout = useGlobal<StripeCheckout>('Stripe.checkout');
-
-  if (!checkout) return <p>Loading Stripe...</p>;
-
-  return <button onClick={() => checkout.redirectToCheckout({ sessionId: '...' })}>Pay</button>;
-}
-
-function CheckoutWithStatus() {
-  const { value, status, error } = useGlobalStatus<StripeCheckout>('Stripe.checkout', {
+  const { value: checkout, status, error } = useWindotWatchr<StripeCheckout>('Stripe.checkout', {
     timeout: 10_000,
   });
 
   if (status === 'timeout') return <p>Stripe took too long to load.</p>;
   if (status === 'error') return <p>Error: {error?.message}</p>;
-  if (!value) return <p>Loading...</p>;
+  if (!checkout) return <p>Loading...</p>;
 
-  return <button>Pay</button>;
+  return <button onClick={() => checkout.redirectToCheckout({ sessionId: '...' })}>Pay</button>;
 }
 ```
 
-**Hooks**: `useGlobal`, `useGlobals`, `useGlobalStatus`
+**Hook**: `useWindotWatchr`
 
-### Vue — `windotwatchr/vue`
+### Vue — `windotwatchr/vue` (planned)
 
-```typescript
-import { useGlobal, useGlobalStatus } from 'windotwatchr/vue';
-
-const checkout = useGlobal<StripeCheckout>('Stripe.checkout');
-const { value, status, error } = useGlobalStatus<StripeCheckout>('Stripe.checkout', {
-  timeout: 10_000,
-});
-```
-
-**Composables**: `useGlobal`, `useGlobals`, `useGlobalStatus`
-
-Both wrappers declare their respective framework as an optional `peerDependency`.
+Vue composables are planned for a future release. The core API is framework-agnostic and works in any Vue component via `onMounted`/`onUnmounted`.
 
 ## Key Features
 

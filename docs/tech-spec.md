@@ -10,20 +10,18 @@ Single package with subpath exports:
 windotwatchr/
 ├── src/
 │   ├── core/
-│   │   ├── global-watcher.ts      # Orchestrator, singleton registry
+│   │   ├── windot-watcher.ts      # Orchestrator, singleton registry
 │   │   ├── property-trap.ts       # Object.defineProperty on window
 │   │   ├── proxy-wrapper.ts       # ES6 Proxy with set + defineProperty traps
 │   │   ├── poll-fallback.ts       # setTimeout polling for frozen/sealed objects
 │   │   ├── subscription-manager.ts # Map<path, Set<subscriber>>, fan-out
 │   │   └── notification-queue.ts  # queueMicrotask batching
 │   ├── react/
-│   │   ├── use-global.ts
-│   │   ├── use-globals.ts
-│   │   └── use-global-status.ts
+│   │   ├── use-windotwatchr.ts
+│   │   └── use-windotwatchr-status.ts
 │   ├── vue/
-│   │   ├── use-global.ts
-│   │   ├── use-globals.ts
-│   │   └── use-global-status.ts
+│   │   ├── use-windotwatchr.ts
+│   │   └── use-windotwatchr-status.ts
 │   └── index.ts                   # Core public API
 ├── package.json
 └── tsup.config.ts
@@ -36,7 +34,7 @@ Consumer Code
     │
     ├── windotwatchr (core)
     │       │
-    │       ├── GlobalWatcher (singleton registry per root key)
+    │       ├── WindotWatcher (singleton registry per root key)
     │       │       │
     │       │       ├── PropertyTrap (Object.defineProperty on window)
     │       │       ├── ProxyWrapper (ES6 Proxy, lazy nesting)
@@ -46,13 +44,13 @@ Consumer Code
     │       └── NotificationQueue (queueMicrotask batching)
     │
     ├── windotwatchr/react (thin wrapper)
-    │       └── useEffect + watchGlobal + useState
+    │       └── useEffect + watchWindot + useState
     │
     └── windotwatchr/vue (thin wrapper)
-            └── onMounted + watchGlobal + ref
+            └── onMounted + watchWindot + ref
 ```
 
-Framework wrappers depend only on the core public API (`watchGlobal`). They never import internal modules.
+Framework wrappers depend only on the core public API (`watchWindot`). They never import internal modules.
 
 ---
 
@@ -249,27 +247,26 @@ function enqueue(subscribers: Set<SubscriberCallback>, path: string, value: unkn
 ### Watcher States
 
 ```
-                    ┌──────────────────────┐
-                    │                      │
-                    ▼                      │
-  ┌──────┐    ┌──────────┐    ┌───────┐   │
-  │ idle │───▶│ watching  │───▶│ ready │   │
-  └──────┘    └──────────┘    └───────┘   │
-                    │                      │
-                    ├─────────────────┐    │
-                    ▼                 ▼    │
-              ┌──────────┐    ┌─────────┐ │
-              │ timeout  │    │  error  │ │
-              └──────────┘    └─────────┘ │
-                    │                      │
-                    │  (retry)             │
-                    └──────────────────────┘
+              ┌──────────────────────┐
+              │                      │
+              ▼                      │
+        ┌──────────┐    ┌───────┐   │
+        │ watching  │───▶│ ready │   │
+        └──────────┘    └───────┘   │
+              │                      │
+              ├─────────────────┐    │
+              ▼                 ▼    │
+        ┌──────────┐    ┌─────────┐ │
+        │ timeout  │    │  error  │ │
+        └──────────┘    └─────────┘ │
+              │                      │
+              │  (retry)             │
+              └──────────────────────┘
 ```
 
 | State | Entry Condition | Behavior |
 |-------|----------------|----------|
-| `idle` | Initial state, before `watchGlobal()` is called | No traps installed |
-| `watching` | `watchGlobal()` called | PropertyTrap + ProxyWrapper active, listening for assignment |
+| `watching` | `watchWindot()` called | PropertyTrap + ProxyWrapper active, listening for assignment |
 | `ready` | Path value passes readiness predicate | Callback fired, watcher remains active for re-notification on root replacement |
 | `timeout` | Configured timeout elapsed | `ww:timeout` CustomEvent dispatched. If retries configured, transitions back to `watching` |
 | `error` | Internal error (trap installation failure, etc.) | `ww:error` CustomEvent dispatched |
@@ -316,10 +313,10 @@ window.dispatchEvent(new CustomEvent('ww:timeout', {
 
 ### `dispose()` Function
 
-Every `watchGlobal()` call returns a `dispose` function:
+Every `watchWindot()` call returns a `dispose` function:
 
 ```typescript
-const dispose = watchGlobal('Stripe.checkout', callback);
+const dispose = watchWindot('Stripe.checkout', callback);
 
 // Later:
 dispose(); // Removes this subscriber, cleans up if last subscriber
@@ -332,7 +329,7 @@ dispose(); // Removes this subscriber, cleans up if last subscriber
 ```typescript
 const controller = new AbortController();
 
-watchGlobal('Stripe.checkout', callback, {
+watchWindot('Stripe.checkout', callback, {
   signal: controller.signal,
 });
 
@@ -348,8 +345,8 @@ controller.abort(); // Equivalent to calling dispose()
 ### SSR / Worker Environments
 
 When `typeof window === 'undefined'` (Node.js, Cloudflare Workers, Vercel Edge):
-- `watchGlobal()` returns a no-op dispose function immediately. Callback is never invoked.
-- `waitForGlobal()` rejects immediately with `Error('windotwatchr: window is not available')`. This prevents silent hangs from `await waitForGlobal('Stripe')` in SSR contexts where there is no timeout default.
+- `watchWindot()` returns a no-op dispose function immediately. Callback is never invoked.
+- `waitForWindot()` rejects immediately with `Error('windotwatchr: window is not available')`. This prevents silent hangs from `await waitForWindot('Stripe')` in SSR contexts where there is no timeout default.
 - No warnings, no event dispatching.
 
 ---
@@ -389,32 +386,30 @@ Consumers opt in to observability by adding event listeners. Zero overhead for c
 
 ```typescript
 /**
- * Watch a window global property path.
+ * Watch a window property path for a value to appear.
  * Callback fires when the value at `path` passes the readiness predicate.
  * Returns a dispose function to remove the subscription.
  */
-function watchGlobal<T = unknown>(
+function watchWindot<T = unknown>(
   path: string,
   callback: (value: T) => void,
-  options?: WatchGlobalOptions,
+  options?: WindotWatchrOptions,
 ): DisposeFunction;
 
 /**
  * Promise-based variant.
  * Resolves when the value at `path` passes the readiness predicate.
  */
-function waitForGlobal<T = unknown>(
+function waitForWindot<T = unknown>(
   path: string,
-  options?: WatchGlobalOptions,
+  options?: WindotWatchrOptions,
 ): Promise<T>;
-
-// watchGlobals — deferred to v2. Consumers can call watchGlobal() in a loop.
 ```
 
 ### Options Interface
 
 ```typescript
-interface WatchGlobalOptions {
+interface WindotWatchrOptions {
   /** Timeout in ms. No default — consumer must set explicitly. */
   timeout?: number;
 
@@ -437,70 +432,38 @@ interface WatchGlobalOptions {
 type DisposeFunction = () => void;
 ```
 
-### React Hook Signatures — `windotwatchr/react`
+### React Hook Signature — `windotwatchr/react`
 
 ```typescript
 /**
- * Returns the value at window[path] once ready, or null while pending.
- * Cleans up automatically on unmount.
+ * Watch a single window property path with full lifecycle visibility.
+ * Returns value, status, and error. Cleans up automatically on unmount.
  */
-function useGlobal<T = unknown>(
+function useWindotWatchr<T = unknown>(
   path: string,
-  options?: WatchGlobalOptions,
-): T | null;
-
-/**
- * Watch multiple paths. Returns a record of resolved values.
- */
-function useGlobals<K extends string>(
-  paths: K[],
-  options?: WatchGlobalOptions,
-): Record<K, unknown | null>;
-
-/**
- * Returns value, status, and error for a watched path.
- */
-function useGlobalStatus<T = unknown>(
-  path: string,
-  options?: WatchGlobalOptions,
+  options?: WindotWatchrOptions,
 ): {
   value: T | null;
-  status: 'idle' | 'watching' | 'ready' | 'timeout' | 'error';
+  status: 'watching' | 'ready' | 'timeout' | 'error';
   error: Error | null;
 };
 ```
 
-### Vue Composable Signatures — `windotwatchr/vue`
+### Vue Composable Signature — `windotwatchr/vue`
 
 ```typescript
 import type { Ref } from 'vue';
 
 /**
- * Returns a ref that resolves to the value at window[path] once ready.
- * Cleans up automatically on unmount.
+ * Watch a single window property path with full lifecycle visibility.
+ * Returns refs for value, status, and error. Cleans up automatically on unmount.
  */
-function useGlobal<T = unknown>(
+function useWindotWatchr<T = unknown>(
   path: string,
-  options?: WatchGlobalOptions,
-): Ref<T | null>;
-
-/**
- * Watch multiple paths. Returns a ref containing a record of resolved values.
- */
-function useGlobals<K extends string>(
-  paths: K[],
-  options?: WatchGlobalOptions,
-): Ref<Record<K, unknown | null>>;
-
-/**
- * Returns refs for value, status, and error.
- */
-function useGlobalStatus<T = unknown>(
-  path: string,
-  options?: WatchGlobalOptions,
+  options?: WindotWatchrOptions,
 ): {
   value: Ref<T | null>;
-  status: Ref<'idle' | 'watching' | 'ready' | 'timeout' | 'error'>;
+  status: Ref<'watching' | 'ready' | 'timeout' | 'error'>;
   error: Ref<Error | null>;
 };
 ```
@@ -511,15 +474,18 @@ function useGlobalStatus<T = unknown>(
 
 ### React (`windotwatchr/react`)
 
-Thin wrappers (~20 lines each) over the core API using `useEffect`, `useState`, and `useRef`.
+Thin wrappers over the core API using `useEffect`, `useState`, and `useRef`. Single-path and multi-path behavior unified via TypeScript overloads on `useWindotWatchr`.
 
 ```typescript
-// Conceptual implementation of useGlobal
-function useGlobal<T = unknown>(path: string, options?: WatchGlobalOptions): T | null {
+// Conceptual implementation of useWindotWatchr (single-path overload)
+function useWindotWatchr<T = unknown>(path: string, options?: WindotWatchrOptions): T | null {
   const [value, setValue] = useState<T | null>(null);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   useEffect(() => {
-    const dispose = watchGlobal<T>(path, (v) => setValue(v), options);
+    setValue(null);
+    const dispose = watchWindot<T>(path, (v) => setValue(v), optionsRef.current);
     return dispose;
   }, [path]);
 
@@ -529,20 +495,22 @@ function useGlobal<T = unknown>(path: string, options?: WatchGlobalOptions): T |
 
 **Cleanup**: Effect return calls `dispose()`, which handles React StrictMode double-mount correctly via singleton ref-counting. The PropertyTrap is only removed when the last subscriber disposes.
 
+**Options ref**: Options are stored in a `useRef` to avoid re-triggering the effect on every render when the consumer passes an inline object.
+
 **peerDependency**: `react >= 16.8.0` (hooks support).
 
 ### Vue (`windotwatchr/vue`)
 
-Thin wrappers (~20 lines each) over the core API using `onMounted`, `onUnmounted`, and `ref`.
+Thin wrappers over the core API using `onMounted`, `onUnmounted`, and `ref`. Single-path and multi-path behavior unified via TypeScript overloads on `useWindotWatchr`.
 
 ```typescript
-// Conceptual implementation of useGlobal
-function useGlobal<T = unknown>(path: string, options?: WatchGlobalOptions): Ref<T | null> {
+// Conceptual implementation of useWindotWatchr (single-path overload)
+function useWindotWatchr<T = unknown>(path: string, options?: WindotWatchrOptions): Ref<T | null> {
   const value = ref<T | null>(null) as Ref<T | null>;
   let dispose: DisposeFunction | null = null;
 
   onMounted(() => {
-    dispose = watchGlobal<T>(path, (v) => { value.value = v; }, options);
+    dispose = watchWindot<T>(path, (v) => { value.value = v; }, options);
   });
 
   onUnmounted(() => {
@@ -568,7 +536,7 @@ function useGlobal<T = unknown>(path: string, options?: WatchGlobalOptions): Ref
 | E5 | SDK checks `typeof window.Stripe` with getter present | Medium | Getter returns `undefined` (matches absent property behavior). `typeof undefined === "undefined"` | Integration: test with real Stripe.js, Google Maps |
 | E6 | SDK uses `hasOwnProperty('Stripe')` or `'Stripe' in window` | Medium | Both return `true` for any own property regardless of enumerability. **Risk**: `'Stripe' in window` returns `true` even when getter returns `undefined` — differs from a truly absent property (`false`). SDKs that check `in` before assigning may skip assignment. Mitigated by integration testing against real SDKs | Integration: verify Stripe.js, Google Maps still assign correctly with trap installed |
 | E7 | React StrictMode double-mount causes duplicate traps | Medium | Singleton ref-counting per root key. Only remove trap when ref count hits 0 | Unit: mount → unmount → remount, verify single trap |
-| E8 | SSR / Node.js / Cloudflare Workers — no `window` | Low | Guard with `typeof window !== 'undefined'`; return no-op dispose, immediate reject for `waitForGlobal` | Unit: run in Node.js environment |
+| E8 | SSR / Node.js / Cloudflare Workers — no `window` | Low | Guard with `typeof window !== 'undefined'`; return no-op dispose, immediate reject for `waitForWindot` | Unit: run in Node.js environment |
 | E9 | Path deeper than 2 levels (`Stripe.checkout.sessions.create`) | Medium | Recursive Proxy nesting via `get` trap. Unlimited depth, lazy creation | Unit: watch 4-level path, assign incrementally |
 | E10 | Proxy on frozen object get trap must return same value (invariant) | High | Never proxy frozen objects — detect and fall back to polling | Unit: attempt to proxy frozen object, verify fallback |
 | E11 | Memory leaks from undisposed watchers | Medium | `dispose()` + `AbortSignal`. Singleton ref-counting ensures traps are cleaned up | Unit: dispose all watchers, verify no lingering refs |
@@ -601,8 +569,8 @@ function useGlobal<T = unknown>(path: string, options?: WatchGlobalOptions): Ref
 | Notification fan-out | O(n) where n = subscriber count for that path | Set iteration, unavoidable |
 | Lazy proxy creation | No eager tree walk | Only create nested Proxy when a subscriber watches that depth |
 | Bundle size (core) | <5 KB gzipped | Core + subscription + timeout/retry + events |
-| Bundle size (react wrapper) | <500 B gzipped | ~20 lines, just useEffect + useState |
-| Bundle size (vue wrapper) | <500 B gzipped | ~20 lines, just onMounted + ref |
+| Bundle size (react wrapper) | <500 B gzipped | Thin hooks, just useEffect + useState |
+| Bundle size (vue wrapper) | <500 B gzipped | Thin composables, just onMounted + ref |
 | Memory per watcher | O(1) per subscriber + O(depth) for proxy chain | WeakMap prevents duplicate proxies |
 
 ### Benchmark Requirements
@@ -646,12 +614,13 @@ Real browser, real SDKs. Validates that the defineProperty + Proxy approach does
 
 ### Framework Tests
 
-Run in demo apps to test real framework lifecycle behavior.
+Run in showcase apps to test real framework lifecycle behavior.
 
 | Framework | Tests |
 |-----------|-------|
-| **React** | `useGlobal` resolves correctly; cleanup on unmount; StrictMode double-mount; `useGlobalStatus` status transitions |
-| **Vue** | `useGlobal` ref updates; cleanup on unmount; `useGlobalStatus` ref transitions |
+| **React (Next.js)** | `useWindotWatchr` resolves correctly; cleanup on unmount; StrictMode double-mount; status transitions; SSR hydration |
+| **React (React Router)** | `useWindotWatchr` resolves correctly; cleanup on route change; status transitions |
+| **Vue** | `useWindotWatchr` ref updates; cleanup on unmount; status ref transitions |
 
 ### Performance Benchmarks
 
@@ -676,19 +645,34 @@ Run in demo apps to test real framework lifecycle behavior.
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./react": {
-      "import": "./dist/react.mjs",
-      "require": "./dist/react.cjs",
-      "types": "./dist/react.d.ts"
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
     },
     "./vue": {
-      "import": "./dist/vue.mjs",
-      "require": "./dist/vue.cjs",
-      "types": "./dist/vue.d.ts"
+      "import": {
+        "types": "./dist/vue.d.ts",
+        "default": "./dist/vue.js"
+      },
+      "require": {
+        "types": "./dist/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
     }
   },
   "files": ["dist", "README.md", "LICENSE"],
@@ -701,7 +685,6 @@ Run in demo apps to test real framework lifecycle behavior.
     "react": { "optional": true },
     "vue": { "optional": true }
   },
-  "browserslist": ["> 0.5%", "not dead", "not ie 11"],
   "engines": {
     "node": ">=16.0.0"
   }
@@ -713,35 +696,27 @@ Run in demo apps to test real framework lifecycle behavior.
 ```typescript
 import { defineConfig } from 'tsup';
 
-export default defineConfig([
-  {
-    entry: { index: 'src/index.ts' },
-    format: ['esm', 'cjs'],
-    dts: true,
-    clean: true,
+export default defineConfig({
+  entry: {
+    index: 'src/index.ts',
+    react: 'src/react/index.ts',
   },
-  {
-    entry: { react: 'src/react/index.ts' },
-    format: ['esm', 'cjs'],
-    dts: true,
-    external: ['react', 'windotwatchr'],
-  },
-  {
-    entry: { vue: 'src/vue/index.ts' },
-    format: ['esm', 'cjs'],
-    dts: true,
-    external: ['vue', 'windotwatchr'],
-  },
-]);
+  format: ['esm', 'cjs'],
+  dts: true,
+  clean: true,
+  external: ['react'],
+});
 ```
+
+Note: Vue entry will be added in Phase 4 with `external: ['react', 'vue']`.
 
 ---
 
 ## 13. Implementation Phases
 
-### Phase 1: Core Engine
+### Phase 1: Core Engine ✅
 
-`watchGlobal`, `waitForGlobal`
+`watchWindot`, `waitForWindot`
 
 - PropertyTrap (defineProperty on window)
 - ProxyWrapper (set + defineProperty traps, lazy nesting)
@@ -753,7 +728,7 @@ export default defineConfig([
 - Dispose + singleton ref-counting
 - SSR/Worker no-op guard
 
-### Phase 2: Timeout + Retry + Events
+### Phase 2: Timeout + Retry + Events ✅
 
 - Configurable timeout
 - `ww:timeout` CustomEvent dispatch
@@ -761,22 +736,21 @@ export default defineConfig([
 - `ww:ready`, `ww:error`, `ww:warning` events
 - AbortSignal support
 
-### Phase 3: React Wrapper (`windotwatchr/react`)
+### Phase 3: React Wrapper (`windotwatchr/react`) ✅
 
-- `useGlobal` hook
-- `useGlobals` hook
-- `useGlobalStatus` hook
+- `useWindotWatchr` hook (returns `{ value, status, error }`)
 - StrictMode compatibility verification
+- `windotwatchr/react` subpath export
 
 ### Phase 4: Vue Wrapper (`windotwatchr/vue`)
 
-- `useGlobal` composable
-- `useGlobals` composable
-- `useGlobalStatus` composable
+- `useWindotWatchr` composable (returns `{ value, status, error }` refs)
 
-### Phase 5: SDK Compatibility Testing
+### Phase 5: E2E Showcase Apps + SDK Compatibility Testing
 
-- Playwright tests against Stripe, Google Maps, Shopify, Affirm, OneTrust
+- Next.js showcase app with real 3P ecommerce scripts
+- React Router showcase app with real 3P ecommerce scripts
+- Playwright e2e tests against real SDKs (Stripe, Google Maps, etc.)
 - Verify defineProperty trap doesn't break SDK initialization
 - Verify Proxy wrapping is transparent to SDK internals
 - Document any SDK-specific workarounds
@@ -791,6 +765,4 @@ export default defineConfig([
 
 - README (from brief.md)
 - API reference
-- React demo app
-- Vue demo app
 - Migration guide from polling patterns
