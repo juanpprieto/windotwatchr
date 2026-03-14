@@ -1,5 +1,7 @@
 # windotwatchr
 
+<img src="windotwatchr.png" alt="windotwatchr" width="100%" />
+
 [![CI](https://github.com/juanpprieto/windotwatchr/actions/workflows/ci.yml/badge.svg)](https://github.com/juanpprieto/windotwatchr/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/windotwatchr.svg)](https://www.npmjs.com/package/windotwatchr)
 [![npm bundle size](https://img.shields.io/bundlephobia/minzip/windotwatchr)](https://bundlephobia.com/package/windotwatchr)
@@ -28,6 +30,11 @@ npx skills add juanpprieto/windotwatchr -s windotwatchr-expert
 /plugin marketplace add juanpprieto/windotwatchr
 /plugin install windotwatchr-expert@windotwatchr
 ```
+
+## Live Demos
+
+- [Next.js showcase](https://juanpprieto.github.io/windotwatchr/nextjs/)
+- [Vite + React showcase](https://juanpprieto.github.io/windotwatchr/vite-react/)
 
 ## The Problem
 

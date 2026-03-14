@@ -28,6 +28,10 @@ npm run dev          # http://localhost:3000
 | [`app/dashboard/page.tsx`](app/dashboard/page.tsx) | `SDKCard` component — demonstrates `useWindotWatchr` returning `{ value, status, error }` for each path. |
 | [`public/scripts/`](public/scripts/) | Mock SDKs that simulate real loading patterns (delayed init, namespace building, property mutation). Each file documents the pattern it mimics. |
 
+## Static Export
+
+`next.config.ts` sets `output: 'export'`, `basePath`, and `trailingSlash` for GitHub Pages deployment. These demos use no server features (no SSR/ISR/API routes), so static export works without any functionality loss.
+
 ## How the Mock SDKs Work
 
 The four scripts in `public/scripts/` simulate real third-party SDK behaviors:

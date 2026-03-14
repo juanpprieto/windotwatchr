@@ -1,0 +1,57 @@
+name: Deploy Examples
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter nextjs-showcase build
+      - run: pnpm --filter vite-react-showcase build
+      - name: Assemble site
+        run: |
+          mkdir -p _site/nextjs _site/vite-react
+          cp -r examples/nextjs/out/* _site/nextjs/
+          cp -r examples/vite-react/dist/* _site/vite-react/
+          cat > _site/index.html << 'LANDING'
+          <!DOCTYPE html>
+          <html><head><title>windotwatchr demos</title></head>
+          <body>
+            <h1>windotwatchr demos</h1>
+            <ul>
+              <li><a href="nextjs/">Next.js showcase</a></li>
+              <li><a href="vite-react/">Vite + React showcase</a></li>
+            </ul>
+          </body></html>
+          LANDING
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
