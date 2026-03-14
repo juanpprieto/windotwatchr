@@ -1,0 +1,14 @@
+{
+  "name": "windotwatchr-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:nextjs": "playwright test --project=nextjs",
+    "test:vite-react": "playwright test --project=vite-react"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}
