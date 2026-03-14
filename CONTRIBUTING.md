@@ -38,3 +38,14 @@ pnpm changeset
 - Fill out the PR template
 - Ensure `pnpm check` passes
 - Keep PRs focused — one concern per PR
+
+## Release process
+
+Releases are fully automated. No manual npm login or tokens required.
+
+1. PRs with changesets get merged to `main`
+2. The [Release workflow](.github/workflows/release.yml) creates a "Version Packages" PR that bumps versions and updates the changelog
+3. Merging the "Version Packages" PR publishes to npm and creates a GitHub release
+4. npm authentication uses [OIDC Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) — no `NPM_TOKEN` secret needed
+
+Only maintainers listed in [CODEOWNERS](.github/CODEOWNERS) can merge to `main`.

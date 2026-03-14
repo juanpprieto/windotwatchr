@@ -1,6 +1,9 @@
 # windotwatchr
 
-
+[![CI](https://github.com/juanpprieto/windotwatchr/actions/workflows/ci.yml/badge.svg)](https://github.com/juanpprieto/windotwatchr/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/windotwatchr.svg)](https://www.npmjs.com/package/windotwatchr)
+[![npm bundle size](https://img.shields.io/bundlephobia/minzip/windotwatchr)](https://bundlephobia.com/package/windotwatchr)
+[![license](https://img.shields.io/npm/l/windotwatchr.svg)](https://github.com/juanpprieto/windotwatchr/blob/main/LICENSE)
 
 > Detect `window.*` properties the moment they appear. No polling.
 

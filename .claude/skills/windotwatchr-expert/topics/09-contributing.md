@@ -242,3 +242,18 @@ Husky runs `lint-staged` on commit:
 - `*.{ts,tsx}` files → `oxlint`
 
 Full quality gate (`typecheck + lint + test`) runs in CI.
+
+## Release Process
+
+Releases are fully automated via [Changesets](https://github.com/changesets/changesets) + OIDC Trusted Publishing:
+
+1. PRs with changesets get merged to `main`
+2. The Release workflow (`.github/workflows/release.yml`) creates a "Version Packages" PR
+3. Merging that PR publishes to npm and creates a GitHub release
+4. npm auth uses OIDC — no `NPM_TOKEN` or manual OTP needed
+
+Key files:
+- `.changeset/config.json` — changesets config (`access: public`, `baseBranch: main`)
+- `.github/workflows/release.yml` — needs `id-token: write` permission for OIDC
+- `package.json` — `publishConfig.provenance: true` enables provenance attestations
+- npmjs.com package settings — Trusted Publisher configured for `release.yml`
