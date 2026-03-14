@@ -58,6 +58,9 @@ examples/vite-react/dist/
 e2e/test-results/
 e2e/playwright-report/
 
+# MCP config (contains tokens)
+.mcp.json
+
 # Temp
 tmp/
 .cache/
