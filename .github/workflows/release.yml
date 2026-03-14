@@ -23,7 +23,7 @@ jobs:
       - uses: changesets/action@v1
         with:
           publish: pnpm release
-          version: pnpm version
+          version: pnpm run version
           createGithubReleases: true
           title: 'Version Packages'
           commit: 'chore: version packages'
