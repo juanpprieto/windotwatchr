@@ -1,181 +1,116 @@
 import { useState, useEffect, useRef } from 'react';
-import type { WindotWatchrOptions } from '../types.js';
+import type { WindotWatchrOptions, WatcherState } from '../types.js';
 import { watchWindot } from '../index.js';
 
 /**
- * React hook that watches one or more `window.*` property paths.
+ * Result object returned by {@link useWindotWatchr}.
  *
- * **Single path** — subscribes to the given `window.*` path and returns
- * the resolved value (or `null` until ready).
- *
- * **Multiple paths** — opens one subscription per path and returns a
- * `Record` keyed by path. Values update independently as each resolves.
- *
- * Watchers are disposed on unmount or when the path(s) change.
- * StrictMode-safe: the singleton ref-counting in the core engine handles
- * double-mount/unmount cycles correctly.
- *
- * @typeParam T - Expected type of the resolved value (single-path overload).
- * @param path - Dot-notation path on `window` (e.g., `"Stripe.checkout"`).
- * @param options - Configuration for timeout, polling, readiness, etc.
- * @returns The resolved value (`T | null`) or a `Record` of values.
+ * @typeParam T - The expected type of the resolved value.
  *
  * @example
  * ```tsx
- * import { useWindotWatchr } from 'windotwatchr/react';
+ * const { value, status, error } = useWindotWatchr<Stripe>('Stripe');
  *
- * // Single path
- * function StripeButton() {
- *   const stripe = useWindotWatchr<Stripe>('Stripe');
- *   if (!stripe) return <div>Loading Stripe...</div>;
- *   return <button onClick={() => stripe.redirectToCheckout({ sessionId: '...' })}>Pay</button>;
- * }
- * ```
- *
- * @example
- * ```tsx
- * import { useWindotWatchr } from 'windotwatchr/react';
- *
- * // Multiple paths
- * function ThirdPartyStatus() {
- *   const sdks = useWindotWatchr(['Stripe', 'google.maps', 'analytics']);
- *   return (
- *     <ul>
- *       <li>Stripe: {sdks.Stripe ? 'Ready' : 'Loading...'}</li>
- *       <li>Maps: {sdks['google.maps'] ? 'Ready' : 'Loading...'}</li>
- *     </ul>
- *   );
+ * if (status === 'ready') {
+ *   value.redirectToCheckout({ sessionId: '...' });
  * }
  * ```
  */
-export function useWindotWatchr<T = unknown>(
-  path: string,
-  options?: WindotWatchrOptions,
-): T | null;
-
-/**
- * Multi-path overload — watches several `window.*` paths simultaneously.
- *
- * Opens one subscription per path and returns a `Record` keyed by each
- * path. Each value is `null` until the corresponding path resolves.
- *
- * @typeParam K - Union of literal string path names.
- * @param paths - Array of dot-notation paths on `window`.
- * @param options - Configuration for timeout, polling, readiness, etc.
- * @returns Record mapping each path to its resolved value or `null`.
- *
- * @example
- * ```tsx
- * const sdks = useWindotWatchr(['Stripe', 'google.maps']);
- * // sdks.Stripe    → Stripe object | null
- * // sdks['google.maps'] → google.maps object | null
- * ```
- */
-export function useWindotWatchr<K extends string>(
-  paths: K[],
-  options?: WindotWatchrOptions,
-): Record<K, unknown>;
-
-export function useWindotWatchr<T = unknown>(
-  pathOrPaths: string | string[],
-  options?: WindotWatchrOptions,
-): T | null | Record<string, unknown> {
-  if (Array.isArray(pathOrPaths)) {
-    return useWindotWatchrMany(pathOrPaths, options);
-  }
-  return useWindotWatchrSingle<T>(pathOrPaths, options);
+export interface WindotWatchrResult<T> {
+  /** The resolved value, or `null` if not yet available. */
+  value: T | null;
+  /** Current watcher lifecycle state. */
+  status: WatcherState;
+  /** Error object if the watcher entered an error state, otherwise `null`. */
+  error: Error | null;
 }
 
 /**
- * Single-path watcher implementation.
+ * React hook that watches a `window.*` property path with full lifecycle tracking.
  *
- * @internal
+ * Subscribes to the given dot-notation path on `window` and returns an object
+ * with `value`, `status`, and `error` fields. Status transitions through
+ * `watching` → `ready` | `timeout` | `error` based on `ww:*` lifecycle events.
+ *
+ * Watchers are disposed on unmount or when the path changes.
+ * StrictMode-safe: the singleton ref-counting in the core engine handles
+ * double-mount/unmount cycles correctly.
+ *
  * @typeParam T - Expected type of the resolved value.
- * @param path - Dot-notation path on `window`.
- * @param options - Watcher configuration (stored in a ref to avoid re-subscriptions).
- * @returns The resolved value or `null`.
+ * @param path - Dot-notation path on `window` (e.g., `"Stripe.checkout"`).
+ * @param options - Configuration for timeout, polling, readiness, etc.
+ * @returns Object with `value`, `status`, and `error` fields.
  *
  * @example
- * ```ts
- * // Called internally by useWindotWatchr when a string is passed:
- * useWindotWatchrSingle<Stripe>('Stripe', opts);
+ * ```tsx
+ * import { useWindotWatchr } from 'windotwatchr/react';
+ *
+ * function StripeLoader() {
+ *   const { value: stripe, status, error } = useWindotWatchr<Stripe>('Stripe', {
+ *     timeout: 10_000,
+ *   });
+ *
+ *   if (status === 'error') return <div>Error: {error?.message}</div>;
+ *   if (status === 'timeout') return <div>Stripe is taking too long to load...</div>;
+ *   if (!stripe) return <div>Loading Stripe ({status})...</div>;
+ *   return <button onClick={() => stripe.redirectToCheckout({ sessionId: '...' })}>Pay</button>;
+ * }
  * ```
  */
-function useWindotWatchrSingle<T>(
+export function useWindotWatchr<T = unknown>(
   path: string,
-  options: WindotWatchrOptions | undefined,
-): T | null {
+  options?: WindotWatchrOptions,
+): WindotWatchrResult<T> {
   const [value, setValue] = useState<T | null>(null);
+  const [status, setStatus] = useState<WatcherState>('watching');
+  const [error, setError] = useState<Error | null>(null);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
   useEffect(() => {
     setValue(null);
-    const dispose = watchWindot<T>(path, setValue, optionsRef.current);
-    return dispose;
-  }, [path]);
+    setStatus('watching');
+    setError(null);
 
-  return value;
-}
-
-/**
- * Multi-path watcher implementation.
- *
- * @internal
- * @typeParam K - Union of literal string path names.
- * @param paths - Array of dot-notation paths on `window`.
- * @param options - Watcher configuration (stored in a ref to avoid re-subscriptions).
- * @returns Record mapping each path to its resolved value or `null`.
- *
- * @example
- * ```ts
- * // Called internally by useWindotWatchr when an array is passed:
- * useWindotWatchrMany(['Stripe', 'google.maps'], opts);
- * ```
- */
-function useWindotWatchrMany<K extends string>(
-  paths: K[],
-  options: WindotWatchrOptions | undefined,
-): Record<K, unknown> {
-  const [values, setValues] = useState<Record<K, unknown>>(() => {
-    const initial = {} as Record<K, unknown>;
-    for (const p of paths) {
-      initial[p] = null;
-    }
-    return initial;
-  });
-
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
-
-  // Serialized for stable useEffect dependency comparison —
-  // avoids re-subscribing when the caller passes a new array reference
-  // with the same contents.
-  const pathsKey = JSON.stringify(paths);
-
-  useEffect(() => {
-    const currentPaths = JSON.parse(pathsKey) as K[];
-
-    setValues(() => {
-      const fresh = {} as Record<K, unknown>;
-      for (const p of currentPaths) {
-        fresh[p] = null;
-      }
-      return fresh;
-    });
-
-    const disposers = currentPaths.map((p) =>
-      watchWindot(p, (val) => {
-        setValues((prev) => ({ ...prev, [p]: val }));
-      }, optionsRef.current),
-    );
-
-    return () => {
-      for (const dispose of disposers) {
-        dispose();
+    const onReady = (e: Event): void => {
+      const detail = (e as CustomEvent).detail as { path: string };
+      if (detail.path === path) {
+        setStatus('ready');
       }
     };
-  }, [pathsKey]);
 
-  return values;
+    const onTimeout = (e: Event): void => {
+      const detail = (e as CustomEvent).detail as { path: string };
+      if (detail.path === path) {
+        setStatus('timeout');
+      }
+    };
+
+    const onError = (e: Event): void => {
+      const detail = (e as CustomEvent).detail as { path: string; error?: Error };
+      if (detail.path === path) {
+        setStatus('error');
+        if (detail.error) {
+          setError(detail.error);
+        }
+      }
+    };
+
+    window.addEventListener('ww:ready', onReady);
+    window.addEventListener('ww:timeout', onTimeout);
+    window.addEventListener('ww:error', onError);
+
+    const dispose = watchWindot<T>(path, (val) => {
+      setValue(() => val);
+    }, optionsRef.current);
+
+    return () => {
+      dispose();
+      window.removeEventListener('ww:ready', onReady);
+      window.removeEventListener('ww:timeout', onTimeout);
+      window.removeEventListener('ww:error', onError);
+    };
+  }, [path]);
+
+  return { value, status, error };
 }
