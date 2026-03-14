@@ -1,0 +1,33 @@
+{
+  "name": "windotwatchr",
+  "owner": {
+    "name": "Juan Prieto",
+    "email": "juanpprieto@gmail.com"
+  },
+  "metadata": {
+    "description": "Skills for building with windotwatchr — zero-polling window.* property detection",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "windotwatchr-expert",
+      "description": "Deep knowledge of windotwatchr's API, internals, detection strategies, React hook, events, SSR safety, commerce patterns, and contributor workflows",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./.claude/skills/windotwatchr-expert"
+      ],
+      "license": "MIT",
+      "keywords": [
+        "windotwatchr",
+        "window",
+        "proxy",
+        "watcher",
+        "sdk",
+        "react",
+        "hook",
+        "third-party"
+      ]
+    }
+  ]
+}

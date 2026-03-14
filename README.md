@@ -11,6 +11,19 @@
 npm install windotwatchr
 ```
 
+### AI Agent Skill
+
+Give your AI coding agent deep knowledge of windotwatchr's API, internals, and best practices:
+
+```bash
+# Any agent (Claude Code, Cursor, Copilot, 38+ others)
+npx skills add juanpprieto/windotwatchr -s windotwatchr-expert
+
+# Claude Code plugin marketplace
+/plugin marketplace add juanpprieto/windotwatchr
+/plugin install windotwatchr-expert@windotwatchr
+```
+
 ## The Problem
 
 Third-party scripts attach themselves to `window` at unpredictable times. Many provide no ready callback, making it hard to coordinate dependent UX flows, defer analytics events until an SDK is initialized, or render widgets that depend on deeply nested APIs. The standard workaround is a `setTimeout` loop:
