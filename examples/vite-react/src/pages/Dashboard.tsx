@@ -5,10 +5,10 @@ import { useWindotWatchr } from 'windotwatchr/react';
 import type { WindotWatchrOptions } from 'windotwatchr/react';
 
 const SCRIPTS = [
-  '/scripts/acme-analytics.js',
-  '/scripts/acme-payments.js',
-  '/scripts/acme-pixel.js',
-  '/scripts/acme-maps.js',
+  `${import.meta.env.BASE_URL}scripts/acme-analytics.js`,
+  `${import.meta.env.BASE_URL}scripts/acme-payments.js`,
+  `${import.meta.env.BASE_URL}scripts/acme-pixel.js`,
+  `${import.meta.env.BASE_URL}scripts/acme-maps.js`,
 ];
 
 const DASHBOARD_CODE = `function SDKCard({ name, path, options }) {

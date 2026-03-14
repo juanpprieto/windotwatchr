@@ -119,7 +119,7 @@ function useScript(src: string) {
 }
 
 export function Payments() {
-  useScript('/scripts/acme-payments.js');
+  useScript(`${import.meta.env.BASE_URL}scripts/acme-payments.js`);
 
   return (
     <main>
@@ -193,7 +193,7 @@ function OldWayPromo({ amount }: { amount: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const script = document.querySelector('script[src="/scripts/acme-payments.js"]');
+    const script = document.querySelector(`script[src="${import.meta.env.BASE_URL}scripts/acme-payments.js"]`);
     if (!script) { return; }
     const onLoad = () => {
       setScriptLoaded(true);

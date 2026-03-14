@@ -8,6 +8,9 @@ import { watchWindot, waitForWindot } from 'windotwatchr';
 import { useWindotWatchr } from 'windotwatchr/react';
 import type { WindotWatchrOptions } from 'windotwatchr/react';
 
+/** next/script does not auto-prepend basePath — resolve it once here. */
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const DASHBOARD_CODE = `function SDKCard({ name, path, options }) {
   const { value, status, error } =
     useWindotWatchr(path, options);
@@ -77,10 +80,10 @@ export default function DashboardPage() {
         inject each SDK are loaded separately in the page layout and are not shown in the snippet.
       </p>
       <CodeSnippet code={DASHBOARD_CODE} />
-      <Script src="/scripts/acme-analytics.js" strategy="afterInteractive" />
-      <Script src="/scripts/acme-payments.js" strategy="afterInteractive" />
-      <Script src="/scripts/acme-pixel.js" strategy="afterInteractive" />
-      <Script src="/scripts/acme-maps.js" strategy="afterInteractive" />
+      <Script src={`${BASE}/scripts/acme-analytics.js`} strategy="afterInteractive" />
+      <Script src={`${BASE}/scripts/acme-payments.js`} strategy="afterInteractive" />
+      <Script src={`${BASE}/scripts/acme-pixel.js`} strategy="afterInteractive" />
+      <Script src={`${BASE}/scripts/acme-maps.js`} strategy="afterInteractive" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
         <SDKCard
           name="analytics"

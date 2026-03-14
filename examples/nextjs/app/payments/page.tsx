@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 import { highlight } from 'sugar-high';
 import { useWindotWatchr } from 'windotwatchr/react';
 
+/** next/script does not auto-prepend basePath — resolve it once here. */
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 /**
  * Shape of a rendered Acme promo component returned by `components.create()`.
  *
@@ -124,7 +127,7 @@ export default function PaymentsPage() {
         live promo widget when the SDK is ready. The third-party script tag is loaded separately
         in the page layout and is not shown in the code snippets below.
       </p>
-      <Script src="/scripts/acme-payments.js" strategy="afterInteractive" />
+      <Script src={`${BASE}/scripts/acme-payments.js`} strategy="afterInteractive" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
         <div>
           <h2 style={{ color: '#f38ba8' }}>Without windotwatchr</h2>
@@ -178,7 +181,7 @@ function OldWayPromo({ amount }: { amount: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const script = document.querySelector('script[src="/scripts/acme-payments.js"]');
+    const script = document.querySelector(`script[src="${BASE}/scripts/acme-payments.js"]`);
     if (!script) { return; }
     const onLoad = () => {
       setScriptLoaded(true);
