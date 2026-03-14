@@ -168,7 +168,7 @@ function SDKCard({
       <p style={{ margin: '0.25rem 0' }}>
         Status: <strong style={{ color: colors.text }}>{status}</strong>
       </p>
-      {value != null && (
+      {value !== null && value !== undefined && (
         <p style={{ color: '#a6adc8', margin: '0.25rem 0' }}>
           Type: <code style={{ color: '#b4befe' }}>{typeof value}</code>
         </p>

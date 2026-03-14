@@ -110,7 +110,7 @@ function CodeSnippet({ code }: { code: string }) {
 function useScript(src: string) {
   useEffect(() => {
     const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) return;
+    if (existing) { return; }
     const script = document.createElement('script');
     script.src = src;
     script.async = true;
@@ -194,7 +194,7 @@ function OldWayPromo({ amount }: { amount: number }) {
 
   useEffect(() => {
     const script = document.querySelector('script[src="/scripts/acme-payments.js"]');
-    if (!script) return;
+    if (!script) { return; }
     const onLoad = () => {
       setScriptLoaded(true);
       const w = window as unknown as Record<string, unknown>;
@@ -215,7 +215,7 @@ function OldWayPromo({ amount }: { amount: number }) {
       const w = window as unknown as Record<string, unknown>;
       const ap = w.acmePayments as { ui?: { components?: AcmeComponents } } | undefined;
       if (ap?.ui?.components) {
-        if (cancelled) return;
+        if (cancelled) { return; }
         setReady(true);
         setDetectedAt(Date.now());
         const comp = ap.ui.components.create('promo', {

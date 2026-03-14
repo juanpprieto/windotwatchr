@@ -25,6 +25,7 @@
 
   // Step 3: Map constructor (the leaf value watchers care about)
   setTimeout(function () {
+    // oxlint-disable-next-line unicorn/consistent-function-scoping
     window.acme.maps.Map = function AcmeMap(element, opts) {
       this.element = element;
       this.center = opts && opts.center;

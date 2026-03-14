@@ -63,7 +63,7 @@ function CodeSnippet({ code }: { code: string }) {
 function useScripts(srcs: string[]) {
   useEffect(() => {
     for (const src of srcs) {
-      if (document.querySelector(`script[src="${src}"]`)) continue;
+      if (document.querySelector(`script[src="${src}"]`)) { continue; }
       const script = document.createElement('script');
       script.src = src;
       script.async = true;
@@ -188,7 +188,7 @@ function SDKCard({
       <p style={{ margin: '0.25rem 0' }}>
         Status: <strong style={{ color: colors.text }}>{status}</strong>
       </p>
-      {value != null && (
+      {value !== null && value !== undefined && (
         <p style={{ color: '#a6adc8', margin: '0.25rem 0' }}>
           Type: <code style={{ color: '#b4befe' }}>{typeof value}</code>
         </p>

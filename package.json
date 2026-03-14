@@ -32,22 +32,42 @@
     "LICENSE"
   ],
   "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/juanpprieto/windotwatchr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/juanpprieto/windotwatchr/issues"
+  },
+  "homepage": "https://github.com/juanpprieto/windotwatchr#readme",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "scripts": {
     "build": "tsup",
-    "lint": "oxlint",
+    "lint": "oxlint --ignore-pattern 'next-env.d.ts'",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": ["oxlint"]
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "husky": "^9.1.7",
     "jsdom": "^25.0.0",
+    "lint-staged": "^16.4.0",
     "oxlint": "^1.55.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -65,15 +85,16 @@
   },
   "keywords": [
     "window",
-    "DOM",
     "proxy",
-    "observe",
+    "watcher",
+    "observer",
+    "sdk",
     "third-party",
-    "scripts",
-    "global",
-    "watcher"
+    "react",
+    "hook"
   ],
-  "author": "Juan P. Prieto",
+  "author": "Juan Prieto",
+  "packageManager": "pnpm@10.19.0",
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"

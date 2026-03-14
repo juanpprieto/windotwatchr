@@ -5,7 +5,7 @@ test.describe('SSR safety — Next.js', () => {
     // Collect console errors
     const errors: string[] = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error') errors.push(msg.text());
+      if (msg.type() === 'error') { errors.push(msg.text()); }
     });
 
     const response = await page.goto('/payments');
@@ -24,7 +24,7 @@ test.describe('SSR safety — Next.js', () => {
   test('dashboard page renders without SSR window crash', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error') errors.push(msg.text());
+      if (msg.type() === 'error') { errors.push(msg.text()); }
     });
 
     const response = await page.goto('/dashboard');

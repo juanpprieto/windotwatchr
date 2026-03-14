@@ -26,7 +26,7 @@ export async function expectStatus(
 export async function expectWindowGlobal(page: Page, path: string) {
   const exists = await page.evaluate((p) => {
     return p.split('.').reduce<unknown>((obj, key) => {
-      if (obj != null && typeof obj === 'object') return (obj as Record<string, unknown>)[key];
+      if (obj !== null && obj !== undefined && typeof obj === 'object') { return (obj as Record<string, unknown>)[key]; }
       return undefined;
     }, window) !== undefined;
   }, path);
@@ -39,7 +39,7 @@ export async function expectWindowGlobal(page: Page, path: string) {
  */
 export async function getDetectedAt(page: Page, testId: string): Promise<number | null> {
   const val = await page.getByTestId(testId).getAttribute('data-detected-at');
-  if (!val || val === '') return null;
+  if (!val || val === '') { return null; }
   return parseInt(val, 10);
 }
 
@@ -53,14 +53,14 @@ export async function waitForWatcherEvent(
   timeout = 5_000,
 ): Promise<Record<string, unknown>> {
   return page.evaluate(
-    ({ eventName, pathFilter, timeout }) => {
+    (args) => {
       return new Promise<Record<string, unknown>>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${eventName}`)), timeout);
-        window.addEventListener(eventName, function handler(e: Event) {
+        const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${args.eventName}`)), args.timeout);
+        window.addEventListener(args.eventName, function handler(e: Event) {
           const detail = (e as CustomEvent).detail as Record<string, unknown>;
-          if (pathFilter && detail.path !== pathFilter) return;
+          if (args.pathFilter && detail.path !== args.pathFilter) { return; }
           clearTimeout(timer);
-          window.removeEventListener(eventName, handler);
+          window.removeEventListener(args.eventName, handler);
           resolve(detail);
         });
       });

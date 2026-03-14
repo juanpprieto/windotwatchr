@@ -59,7 +59,7 @@
       },
       render: function (selector) {
         var el = document.querySelector(selector);
-        if (el) el.setAttribute('data-acme-rendered', 'true');
+        if (el) { el.setAttribute('data-acme-rendered', 'true'); }
       },
     };
 
