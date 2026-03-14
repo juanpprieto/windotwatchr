@@ -49,13 +49,14 @@ Session.vim
 # Logs
 *.log
 
-# React demo
-demos/react/.next/
-demos/react/dist/
+# Example apps
+examples/nextjs/.next/
+examples/nextjs/dist/
+examples/vite-react/dist/
 
-# Vue demo
-demos/vue/.nuxt/
-demos/vue/dist/
+# E2E
+e2e/test-results/
+e2e/playwright-report/
 
 # Temp
 tmp/

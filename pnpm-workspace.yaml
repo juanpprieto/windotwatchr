@@ -1,1 +1,3 @@
-approveBuilds: esbuild
+packages:
+  - 'examples/*'
+  - 'e2e'
