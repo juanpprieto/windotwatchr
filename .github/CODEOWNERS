@@ -1,0 +1,11 @@
+# Default owner for everything
+* @juanpprieto
+
+# Release-critical files require explicit owner review
+package.json @juanpprieto
+pnpm-lock.yaml @juanpprieto
+tsup.config.ts @juanpprieto
+tsconfig.json @juanpprieto
+.changeset/ @juanpprieto
+.github/ @juanpprieto
+src/ @juanpprieto
