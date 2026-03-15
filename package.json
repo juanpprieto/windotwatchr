@@ -1,6 +1,6 @@
 {
   "name": "windotwatchr",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Zero-polling, event-driven detection of window.* global properties and nested sub-APIs.",
   "license": "MIT",
   "type": "module",
