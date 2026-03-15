@@ -3,7 +3,7 @@ import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, 
 
 test.describe('Dashboard page — Next.js', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('dashboard');
   });
 
   test('all 4 SDK cards start in watching status', async ({ page }) => {

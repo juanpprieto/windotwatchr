@@ -3,7 +3,7 @@ import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, 
 
 test.describe('Payments page — Vite + React', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/#/payments');
+    await page.goto('#/payments');
     // Wait for route to render
     await expect(page.locator('h1')).toContainText('Payments');
   });

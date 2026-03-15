@@ -9,10 +9,12 @@ Detects four third-party SDKs on `window` without polling, using windotwatchr in
 pnpm install
 pnpm build          # build the library first
 cd examples/nextjs
-npm run dev          # http://localhost:3000
+npm run dev          # http://localhost:3000/windotwatchr/nextjs/
 ```
 
 ## Pages
+
+Routes below are relative to the configured base path, `/windotwatchr/nextjs/`.
 
 | Route | What it shows |
 |-------|---------------|

@@ -3,7 +3,7 @@ import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, 
 
 test.describe('Payments page — Next.js', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/payments');
+    await page.goto('payments');
   });
 
   test('detects acmePayments.ui.components (3-level deep path)', async ({ page }) => {

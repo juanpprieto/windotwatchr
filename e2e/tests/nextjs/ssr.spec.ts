@@ -8,7 +8,7 @@ test.describe('SSR safety — Next.js', () => {
       if (msg.type() === 'error') { errors.push(msg.text()); }
     });
 
-    const response = await page.goto('/payments');
+    const response = await page.goto('payments');
     expect(response?.status()).toBe(200);
 
     // Page should hydrate and eventually detect SDK
@@ -27,7 +27,7 @@ test.describe('SSR safety — Next.js', () => {
       if (msg.type() === 'error') { errors.push(msg.text()); }
     });
 
-    const response = await page.goto('/dashboard');
+    const response = await page.goto('dashboard');
     expect(response?.status()).toBe(200);
 
     await expect(page.locator('h1')).toContainText('SDK Status Dashboard');
@@ -40,7 +40,7 @@ test.describe('SSR safety — Next.js', () => {
 
   test('initial HTML from server does not contain window access errors', async ({ request }) => {
     // Direct HTTP request — no JS execution (pure SSR HTML)
-    const response = await request.get('/payments');
+    const response = await request.get('payments');
     expect(response.status()).toBe(200);
 
     const html = await response.text();
@@ -54,7 +54,7 @@ test.describe('SSR safety — Next.js', () => {
   });
 
   test('page hydrates and then detects SDK after SSR', async ({ page }) => {
-    await page.goto('/payments');
+    await page.goto('payments');
 
     // After hydration + script load, windotwatchr should detect
     await expect(page.getByTestId('new-way')).toHaveAttribute('data-status', 'ready', {

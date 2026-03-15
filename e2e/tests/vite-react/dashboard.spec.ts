@@ -3,7 +3,7 @@ import { expectStatus, expectWindowGlobal, getDetectedAt } from '../shared/sdk-d
 
 test.describe('Dashboard page — Vite + React', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/#/dashboard');
+    await page.goto('#/dashboard');
     await expect(page.locator('h1')).toContainText('SDK Status Dashboard');
   });
 

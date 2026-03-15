@@ -3,7 +3,7 @@ import { waitForWWApi } from '../shared/sdk-detection';
 
 test.describe('Core features — Next.js', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('dashboard');
     await expect(page.locator('h1')).toContainText('SDK Status Dashboard');
     await waitForWWApi(page);
   });
@@ -108,7 +108,7 @@ test.describe('Core features — Next.js', () => {
     });
 
     // Navigate fresh so addInitScript takes effect
-    await page.goto('/dashboard');
+    await page.goto('dashboard');
     await expect(page.getByTestId('sdk-analytics')).toHaveAttribute('data-status', 'ready', {
       timeout: 5_000,
     });

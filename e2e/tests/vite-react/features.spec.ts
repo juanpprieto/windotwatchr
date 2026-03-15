@@ -3,7 +3,7 @@ import { waitForWWApi } from '../shared/sdk-detection';
 
 test.describe('Core features — Vite + React', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/#/dashboard');
+    await page.goto('#/dashboard');
     await expect(page.locator('h1')).toContainText('SDK Status Dashboard');
     await waitForWWApi(page);
   });
@@ -182,11 +182,11 @@ test.describe('Core features — Vite + React', () => {
     });
 
     // Navigate away
-    await page.goto('/#/');
+    await page.goto('#/');
     await expect(page.locator('h1')).toContainText('windotwatchr showcase');
 
     // Navigate back
-    await page.goto('/#/dashboard');
+    await page.goto('#/dashboard');
     await expect(page.locator('h1')).toContainText('SDK Status Dashboard');
 
     // SDKs should still be detected (globals persist on window)

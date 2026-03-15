@@ -107,14 +107,21 @@ function CodeSnippet({ code }: { code: string }) {
   );
 }
 
+const SCRIPT_LOADED_ATTR = 'data-ww-loaded';
+
 function useScript(src: string) {
   useEffect(() => {
-    const existing = document.querySelector(`script[src="${src}"]`);
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
     if (existing) { return; }
     const script = document.createElement('script');
     script.src = src;
     script.async = true;
+    const markLoaded = () => {
+      script.setAttribute(SCRIPT_LOADED_ATTR, 'true');
+    };
+    script.addEventListener('load', markLoaded, { once: true });
     document.head.appendChild(script);
+    return () => script.removeEventListener('load', markLoaded);
   }, [src]);
 }
 
@@ -193,7 +200,9 @@ function OldWayPromo({ amount }: { amount: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const script = document.querySelector(`script[src="${import.meta.env.BASE_URL}scripts/acme-payments.js"]`);
+    const script = document.querySelector<HTMLScriptElement>(
+      `script[src="${import.meta.env.BASE_URL}scripts/acme-payments.js"]`,
+    );
     if (!script) { return; }
     const onLoad = () => {
       setScriptLoaded(true);
@@ -205,7 +214,13 @@ function OldWayPromo({ amount }: { amount: number }) {
         setApiError('acmePayments.ui is undefined');
       }
     };
-    script.addEventListener('load', onLoad);
+
+    if (script.getAttribute(SCRIPT_LOADED_ATTR) === 'true') {
+      onLoad();
+      return;
+    }
+
+    script.addEventListener('load', onLoad, { once: true });
     return () => script.removeEventListener('load', onLoad);
   }, [amount]);
 

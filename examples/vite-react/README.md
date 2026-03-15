@@ -9,10 +9,12 @@ Detects four third-party SDKs on `window` without polling, using windotwatchr in
 pnpm install
 pnpm build          # build the library first
 cd examples/vite-react
-npm run dev          # http://localhost:5173
+npm run dev          # http://localhost:5173/windotwatchr/vite-react/
 ```
 
 ## Pages
+
+Routes below are relative to the configured base path, `/windotwatchr/vite-react/`.
 
 | Route | What it shows |
 |-------|---------------|
