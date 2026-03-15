@@ -1,22 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
-import type { WindotWatchrOptions, WatcherState } from '../types.js';
+import type { WatchWindotOptions, WatcherState } from '../types.js';
 import { watchWindot } from '../index.js';
 
 /**
- * Result object returned by {@link useWindotWatchr}.
+ * Result object returned by {@link useWatchWindot}.
  *
  * @typeParam T - The expected type of the resolved value.
  *
  * @example
  * ```tsx
- * const { value, status, error } = useWindotWatchr<Stripe>('Stripe');
+ * const { value, status, error } = useWatchWindot<Stripe>('Stripe');
  *
  * if (status === 'ready') {
  *   value.redirectToCheckout({ sessionId: '...' });
  * }
  * ```
  */
-export interface WindotWatchrResult<T> {
+export interface WatchWindotResult<T> {
   /** The resolved value, or `null` if not yet available. */
   value: T | null;
   /** Current watcher lifecycle state. */
@@ -43,10 +43,10 @@ export interface WindotWatchrResult<T> {
  *
  * @example
  * ```tsx
- * import { useWindotWatchr } from 'windotwatchr/react';
+ * import { useWatchWindot } from 'windotwatchr/react';
  *
  * function StripeLoader() {
- *   const { value: stripe, status, error } = useWindotWatchr<Stripe>('Stripe', {
+ *   const { value: stripe, status, error } = useWatchWindot<Stripe>('Stripe', {
  *     timeout: 10_000,
  *   });
  *
@@ -57,10 +57,10 @@ export interface WindotWatchrResult<T> {
  * }
  * ```
  */
-export function useWindotWatchr<T = unknown>(
+export function useWatchWindot<T = unknown>(
   path: string,
-  options?: WindotWatchrOptions,
-): WindotWatchrResult<T> {
+  options?: WatchWindotOptions,
+): WatchWindotResult<T> {
   const [value, setValue] = useState<T | null>(null);
   const [status, setStatus] = useState<WatcherState>('watching');
   const [error, setError] = useState<Error | null>(null);

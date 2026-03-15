@@ -5,15 +5,15 @@ import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
 import { highlight } from 'sugar-high';
 import { watchWindot, waitForWindot } from 'windotwatchr';
-import { useWindotWatchr } from 'windotwatchr/react';
-import type { WindotWatchrOptions } from 'windotwatchr/react';
+import { useWatchWindot } from 'windotwatchr/react';
+import type { WatchWindotOptions } from 'windotwatchr/react';
 
 /** next/script does not auto-prepend basePath — resolve it once here. */
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 const DASHBOARD_CODE = `function SDKCard({ name, path, options }) {
   const { value, status, error } =
-    useWindotWatchr(path, options);
+    useWatchWindot(path, options);
 
   return (
     <div>
@@ -74,7 +74,7 @@ export default function DashboardPage() {
       <Link href="/" style={{ color: '#89b4fa', textDecoration: 'none' }}>&larr; Home</Link>
       <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.5rem 0 1rem', maxWidth: '72ch' }}>
         Four third-party SDKs, four different loading patterns, one hook each. Each card below
-        calls <code style={{ color: '#b4befe' }}>useWindotWatchr</code> with a single dot-notation
+        calls <code style={{ color: '#b4befe' }}>useWatchWindot</code> with a single dot-notation
         path and renders the lifecycle state in real time. The same hook handles sync globals,
         property mutations, deep nesting, and incremental namespace building. The script tags that
         inject each SDK are loaded separately in the page layout and are not shown in the snippet.
@@ -135,9 +135,9 @@ function SDKCard({
   path: string;
   testId: string;
   description: string;
-  options?: WindotWatchrOptions;
+  options?: WatchWindotOptions;
 }) {
-  const { value, status, error } = useWindotWatchr(path, options);
+  const { value, status, error } = useWatchWindot(path, options);
   const [detectedAt, setDetectedAt] = useState<number | null>(null);
   const recorded = useRef(false);
 

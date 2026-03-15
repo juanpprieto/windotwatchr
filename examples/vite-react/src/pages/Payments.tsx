@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { highlight } from 'sugar-high';
-import { useWindotWatchr } from 'windotwatchr/react';
+import { useWatchWindot } from 'windotwatchr/react';
 
 /**
  * Shape of a rendered Acme promo component returned by `components.create()`.
@@ -55,7 +55,7 @@ const OLD_WAY_CODE = `function BNPLPromo({ amount }) {
 
 const NEW_WAY_CODE = `function BNPLPromo({ amount }) {
   const { value: components, status } =
-    useWindotWatchr('acmePayments.ui.components');
+    useWatchWindot('acmePayments.ui.components');
 
   useEffect(() => {
     if (components) {
@@ -129,7 +129,7 @@ export function Payments() {
         Side-by-side comparison of detecting a deeply nested payment SDK
         (<code style={{ color: '#b4befe' }}>acmePayments.ui.components</code>, 3 levels deep).
         The left column uses the traditional setTimeout polling approach. The right column uses
-        a single <code style={{ color: '#b4befe' }}>useWindotWatchr</code> call. Both render a
+        a single <code style={{ color: '#b4befe' }}>useWatchWindot</code> call. Both render a
         live promo widget when the SDK is ready. The third-party script tag is loaded separately
         in the page layout and is not shown in the code snippets below.
       </p>
@@ -282,7 +282,7 @@ function OldWayPromo({ amount }: { amount: number }) {
 /**
  * windotwatchr approach — zero-polling, event-driven SDK detection.
  *
- * Uses `useWindotWatchr<AcmeComponents>` to watch the deep-nested path
+ * Uses `useWatchWindot<AcmeComponents>` to watch the deep-nested path
  * `acmePayments.ui.components`. The core engine installs a PropertyTrap
  * on `window.acmePayments`, then lazily wraps each level in a Proxy as
  * properties are assigned. When `ui.components` is finally set (~800ms),
@@ -298,7 +298,7 @@ function OldWayPromo({ amount }: { amount: number }) {
  * @param props.amount - Dollar amount in cents to display in the promo widget.
  */
 function NewWayPromo({ amount }: { amount: number }) {
-  const { value: components, status } = useWindotWatchr<AcmeComponents>(
+  const { value: components, status } = useWatchWindot<AcmeComponents>(
     'acmePayments.ui.components',
   );
   const [detectedAt, setDetectedAt] = useState<number | null>(null);

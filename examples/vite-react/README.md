@@ -17,7 +17,7 @@ npm run dev          # http://localhost:5173
 | Route | What it shows |
 |-------|---------------|
 | `#/` | Navigation hub |
-| `#/payments` | Side-by-side: setTimeout polling vs. a single `useWindotWatchr` call detecting `acmePayments.ui.components` (3 levels deep) |
+| `#/payments` | Side-by-side: setTimeout polling vs. a single `useWatchWindot` call detecting `acmePayments.ui.components` (3 levels deep) |
 | `#/dashboard` | Four SDK cards, each a different loading pattern — sync global, property mutation, deep nesting, incremental namespace — all handled by one hook |
 
 ## Files to Read
@@ -25,7 +25,7 @@ npm run dev          # http://localhost:5173
 | File | Why |
 |------|-----|
 | [`src/pages/Payments.tsx`](src/pages/Payments.tsx) | Before/after comparison. The "old way" polls every 100ms; the "new way" is a one-liner hook. Both render a live promo widget when the SDK arrives. |
-| [`src/pages/Dashboard.tsx`](src/pages/Dashboard.tsx) | `SDKCard` component — demonstrates `useWindotWatchr` returning `{ value, status, error }` for each path. |
+| [`src/pages/Dashboard.tsx`](src/pages/Dashboard.tsx) | `SDKCard` component — demonstrates `useWatchWindot` returning `{ value, status, error }` for each path. |
 | [`src/App.tsx`](src/App.tsx) | Hash-based router. Shows how windotwatchr cleans up watchers on route changes without leaking subscriptions. |
 | [`public/scripts/`](public/scripts/) | Mock SDKs that simulate real loading patterns (delayed init, namespace building, property mutation). Each file documents the pattern it mimics. |
 

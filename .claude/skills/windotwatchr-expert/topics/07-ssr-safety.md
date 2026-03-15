@@ -43,7 +43,7 @@ export function waitForWindot<T>(path, options?): Promise<T> {
 - **Does NOT hang** — critical for SSR where there's no timeout default
 - Without this guard, `await waitForWindot('Stripe')` would hang forever in SSR
 
-### `useWindotWatchr` → Watching state, no effect
+### `useWatchWindot` → Watching state, no effect
 
 - Renders with `{ value: null, status: 'watching', error: null }`
 - `useEffect` does not run on the server
@@ -77,10 +77,10 @@ export default function PaymentsPage() {
 // app/payments/PaymentLoader.tsx
 'use client';
 
-import { useWindotWatchr } from 'windotwatchr/react';
+import { useWatchWindot } from 'windotwatchr/react';
 
 export default function PaymentLoader() {
-  const { value, status } = useWindotWatchr('Stripe');
+  const { value, status } = useWatchWindot('Stripe');
   // ...
 }
 ```
@@ -89,11 +89,11 @@ export default function PaymentLoader() {
 
 ```tsx
 // pages/payments.tsx
-import { useWindotWatchr } from 'windotwatchr/react';
+import { useWatchWindot } from 'windotwatchr/react';
 
 export default function PaymentsPage() {
   // Safe — hook no-ops during SSR, runs on client after hydration
-  const { value: stripe, status } = useWindotWatchr<Stripe>('Stripe');
+  const { value: stripe, status } = useWatchWindot<Stripe>('Stripe');
 
   if (!stripe) return <div>Loading...</div>;
   return <StripeForm stripe={stripe} />;

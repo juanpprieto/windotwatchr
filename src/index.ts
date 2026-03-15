@@ -1,4 +1,4 @@
-import type { DisposeFunction, SubscriberCallback, WindotWatchrOptions } from './types.js';
+import type { DisposeFunction, SubscriberCallback, WatchWindotOptions } from './types.js';
 import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from './types.js';
 import { dispatchWatcherEvent } from './core/event-dispatcher.js';
 import { watch } from './core/windot-watcher.js';
@@ -8,7 +8,7 @@ export type {
   DisposeFunction,
   SubscriberCallback,
   WatcherState,
-  WindotWatchrOptions,
+  WatchWindotOptions,
 } from './types.js';
 
 /**
@@ -77,7 +77,7 @@ const noop: DisposeFunction = () => {};
 export function watchWindot<T = unknown>(
   path: string,
   callback: SubscriberCallback<T>,
-  options?: WindotWatchrOptions,
+  options?: WatchWindotOptions,
 ): DisposeFunction {
   if (!isBrowser) {
     return noop;
@@ -132,7 +132,7 @@ export function watchWindot<T = unknown>(
  */
 export function waitForWindot<T = unknown>(
   path: string,
-  options?: WindotWatchrOptions,
+  options?: WatchWindotOptions,
 ): Promise<T> {
   if (!isBrowser) {
     return Promise.reject(

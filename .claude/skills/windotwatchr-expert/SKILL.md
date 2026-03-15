@@ -1,12 +1,12 @@
 ---
 name: windotwatchr-expert
-description: "Expert for building with and contributing to windotwatchr — a zero-polling window.* property watcher. Covers the imperative API (watchWindot, waitForWindot), React hook (useWindotWatchr), event system (ww:ready, ww:timeout, ww:error, ww:warning), detection strategies (Proxy, poll, auto), timeout/retry/abort patterns, SSR safety, commerce use cases (payment SDKs, maps, analytics), type system, gotchas, and contributor workflows for both core engine and React binding."
+description: "Expert for building with and contributing to windotwatchr — a zero-polling window.* property watcher. Covers the imperative API (watchWindot, waitForWindot), React hook (useWatchWindot), event system (ww:ready, ww:timeout, ww:error, ww:warning), detection strategies (Proxy, poll, auto), timeout/retry/abort patterns, SSR safety, commerce use cases (payment SDKs, maps, analytics), type system, gotchas, and contributor workflows for both core engine and React binding."
 license: MIT
 compatibility: "Works with any AI coding agent that supports the Agent Skills specification."
 metadata:
   author: juanpprieto
   version: "0.1.0"
-argument-hint: "windotwatchr, watchWindot, waitForWindot, useWindotWatchr, ww:ready, ww:timeout, ww:error, ww:warning, proxy, poll, defineProperty, timeout, retries, abort, signal, dispose, SSR, react, hook, stripe, payments, maps, analytics, sdk, third-party, window, global, watcher, observer, subscribe, callback, promise, microtask, frozen, sealed, polling, fallback, contribute, test, types"
+argument-hint: "windotwatchr, watchWindot, waitForWindot, useWatchWindot, ww:ready, ww:timeout, ww:error, ww:warning, proxy, poll, defineProperty, timeout, retries, abort, signal, dispose, SSR, react, hook, stripe, payments, maps, analytics, sdk, third-party, window, global, watcher, observer, subscribe, callback, promise, microtask, frozen, sealed, polling, fallback, contribute, test, types"
 ---
 
 # windotwatchr Expert
@@ -16,7 +16,7 @@ Comprehensive guide for using and contributing to [windotwatchr](https://github.
 > **Root**: Repository root (where `package.json` with `"name": "windotwatchr"` lives)
 > **Core engine**: `src/core/` — PropertyTrap, ProxyWrapper, SubscriptionManager, NotificationQueue, PollFallback, EventDispatcher
 > **Public API**: `src/index.ts` — `watchWindot()`, `waitForWindot()`
-> **React binding**: `src/react/` — `useWindotWatchr()` hook
+> **React binding**: `src/react/` — `useWatchWindot()` hook
 > **Types**: `src/types.ts` — shared interfaces and type exports
 > **Examples**: `examples/nextjs/`, `examples/vite-react/` — commerce use case demos
 
@@ -37,8 +37,8 @@ Match the user's request to one or more topics using the routing table below and
 | Keywords | Topic file |
 |----------|-----------|
 | `architecture`, `internals`, `engine`, `pipeline`, `registry`, `singleton`, `Reflect.set`, `double notification`, `receiver`, `target`, `WeakMap`, `proxy cache`, `dedup`, `how it works` | `topics/01-architecture-internals.md` |
-| `API`, `watchWindot`, `waitForWindot`, `types`, `WindotWatchrOptions`, `WatcherState`, `DisposeFunction`, `SubscriberCallback`, `generics`, `type parameter`, `exports`, `import`, `package` | `topics/02-api-surface-types.md` |
-| `react`, `hook`, `useWindotWatchr`, `WindotWatchrResult`, `value`, `status`, `error`, `watching`, `ready`, `StrictMode`, `unmount`, `useState`, `useEffect`, `component`, `render` | `topics/03-react-hook.md` |
+| `API`, `watchWindot`, `waitForWindot`, `types`, `WatchWindotOptions`, `WatcherState`, `DisposeFunction`, `SubscriberCallback`, `generics`, `type parameter`, `exports`, `import`, `package` | `topics/02-api-surface-types.md` |
+| `react`, `hook`, `useWatchWindot`, `WatchWindotResult`, `value`, `status`, `error`, `watching`, `ready`, `StrictMode`, `unmount`, `useState`, `useEffect`, `component`, `render` | `topics/03-react-hook.md` |
 | `event`, `CustomEvent`, `ww:ready`, `ww:timeout`, `ww:error`, `ww:warning`, `addEventListener`, `dispatch`, `detail`, `payload`, `lifecycle` | `topics/04-events-system.md` |
 | `strategy`, `proxy`, `poll`, `auto`, `defineProperty`, `trap`, `set trap`, `get trap`, `defineProperty trap`, `frozen`, `sealed`, `fallback`, `polling`, `lazy`, `nested`, `depth`, `hasDeepSubscribers` | `topics/05-detection-strategies.md` |
 | `timeout`, `retries`, `retry`, `abort`, `AbortController`, `AbortSignal`, `signal`, `reject`, `promise`, `timer`, `cancel`, `dispose` | `topics/06-timeout-retry-abort.md` |

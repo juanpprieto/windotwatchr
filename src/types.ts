@@ -2,18 +2,18 @@
  * Configuration options for windotwatchr watchers.
  *
  * Shared by the imperative API (`watchWindot`, `waitForWindot`) and
- * the React hook (`useWindotWatchr`).
+ * the React hook (`useWatchWindot`).
  *
  * @example
  * ```ts
- * const opts: WindotWatchrOptions = {
+ * const opts: WatchWindotOptions = {
  *   timeout: 10_000,
  *   retries: 3,
  *   pollInterval: 200,
  * };
  * ```
  */
-export interface WindotWatchrOptions {
+export interface WatchWindotOptions {
   /** Timeout in ms. No default — consumer must set explicitly. */
   timeout?: number;
 

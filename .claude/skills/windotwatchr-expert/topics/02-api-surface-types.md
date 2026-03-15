@@ -11,7 +11,7 @@ import {
 } from 'windotwatchr';
 
 import type {
-  WindotWatchrOptions,   // Configuration options
+  WatchWindotOptions,   // Configuration options
   WatcherState,          // 'idle' | 'watching' | 'ready' | 'timeout' | 'error'
   DisposeFunction,       // () => void
   SubscriberCallback,    // (value: T) => void
@@ -21,9 +21,9 @@ import type {
 ### `windotwatchr/react`
 
 ```ts
-import { useWindotWatchr } from 'windotwatchr/react';
+import { useWatchWindot } from 'windotwatchr/react';
 
-import type { WindotWatchrResult } from 'windotwatchr/react';
+import type { WatchWindotResult } from 'windotwatchr/react';
 ```
 
 ## Function Signatures
@@ -34,7 +34,7 @@ import type { WindotWatchrResult } from 'windotwatchr/react';
 function watchWindot<T = unknown>(
   path: string,
   callback: SubscriberCallback<T>,
-  options?: WindotWatchrOptions,
+  options?: WatchWindotOptions,
 ): DisposeFunction;
 ```
 
@@ -66,7 +66,7 @@ dispose();
 ```ts
 function waitForWindot<T = unknown>(
   path: string,
-  options?: WindotWatchrOptions,
+  options?: WatchWindotOptions,
 ): Promise<T>;
 ```
 
@@ -99,10 +99,10 @@ ctrl.abort(); // rejects with "windotwatchr: aborted"
 
 ## Type Definitions
 
-### `WindotWatchrOptions`
+### `WatchWindotOptions`
 
 ```ts
-interface WindotWatchrOptions {
+interface WatchWindotOptions {
   /** Timeout in ms. No default — consumer must set explicitly. */
   timeout?: number;
 
@@ -147,10 +147,10 @@ Idempotent — safe to call multiple times.
 type SubscriberCallback<T = unknown> = (value: T) => void;
 ```
 
-### `WindotWatchrResult<T>` (React)
+### `WatchWindotResult<T>` (React)
 
 ```ts
-interface WindotWatchrResult<T> {
+interface WatchWindotResult<T> {
   value: T | null;
   status: WatcherState;
   error: Error | null;

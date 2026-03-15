@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
 import React from 'react';
 import { resetRegistry } from '../core/windot-watcher.js';
-import { useWindotWatchr } from './use-windotwatchr.js';
+import { useWatchWindot } from './use-watch-windot.js';
 
 /** Typed access to windot properties on `window`. */
 type WindotRecord = Record<string, unknown>;
 
-describe('useWindotWatchr', () => {
+describe('useWatchWindot', () => {
   const ROOT = '__ww_hook__';
 
   afterEach(() => {
@@ -21,7 +21,7 @@ describe('useWindotWatchr', () => {
   });
 
   it('returns { value, status, error } shape', () => {
-    const { result } = renderHook(() => useWindotWatchr(ROOT));
+    const { result } = renderHook(() => useWatchWindot(ROOT));
 
     const keys = Object.keys(result.current);
     expect(keys).toContain('value');
@@ -30,7 +30,7 @@ describe('useWindotWatchr', () => {
   });
 
   it('initial state is { value: null, status: watching, error: null }', () => {
-    const { result } = renderHook(() => useWindotWatchr(ROOT));
+    const { result } = renderHook(() => useWatchWindot(ROOT));
 
     expect(result.current.value).toBeNull();
     expect(result.current.status).toBe('watching');
@@ -38,7 +38,7 @@ describe('useWindotWatchr', () => {
   });
 
   it('transitions to ready when value resolves', async () => {
-    const { result } = renderHook(() => useWindotWatchr(ROOT));
+    const { result } = renderHook(() => useWatchWindot(ROOT));
 
     await act(async () => {
       (window as unknown as WindotRecord)[ROOT] = { loaded: true };
@@ -54,7 +54,7 @@ describe('useWindotWatchr', () => {
     vi.useFakeTimers();
 
     const { result } = renderHook(() =>
-      useWindotWatchr(ROOT, { timeout: 100, pollInterval: 0 }),
+      useWatchWindot(ROOT, { timeout: 100, pollInterval: 0 }),
     );
 
     await act(async () => {
@@ -68,7 +68,7 @@ describe('useWindotWatchr', () => {
   });
 
   it('populates error field on ww:error event', async () => {
-    const { result } = renderHook(() => useWindotWatchr(ROOT));
+    const { result } = renderHook(() => useWatchWindot(ROOT));
 
     const testError = new Error('windot test error');
 
@@ -85,7 +85,7 @@ describe('useWindotWatchr', () => {
   });
 
   it('ignores events for other paths', async () => {
-    const { result } = renderHook(() => useWindotWatchr(ROOT));
+    const { result } = renderHook(() => useWatchWindot(ROOT));
 
     await act(async () => {
       window.dispatchEvent(
@@ -102,7 +102,7 @@ describe('useWindotWatchr', () => {
     const ROOT2 = '__ww_hook_2__';
 
     const { result, rerender } = renderHook(
-      ({ path }) => useWindotWatchr(path),
+      ({ path }) => useWatchWindot(path),
       { initialProps: { path: ROOT } },
     );
 
@@ -133,7 +133,7 @@ describe('useWindotWatchr', () => {
   });
 
   it('cleans up on unmount — no notifications after unmount', async () => {
-    const { result, unmount } = renderHook(() => useWindotWatchr(ROOT));
+    const { result, unmount } = renderHook(() => useWatchWindot(ROOT));
 
     unmount();
 
@@ -148,7 +148,7 @@ describe('useWindotWatchr', () => {
   it('cleans up event listeners on unmount', async () => {
     const removeSpy = vi.spyOn(window, 'removeEventListener');
 
-    const { unmount } = renderHook(() => useWindotWatchr(ROOT));
+    const { unmount } = renderHook(() => useWatchWindot(ROOT));
     unmount();
 
     const removedEvents = removeSpy.mock.calls.map((call) => call[0]);
@@ -160,7 +160,7 @@ describe('useWindotWatchr', () => {
   });
 
   it('works in StrictMode (double mount/unmount)', async () => {
-    const { result } = renderHook(() => useWindotWatchr(ROOT), {
+    const { result } = renderHook(() => useWatchWindot(ROOT), {
       wrapper: ({ children }) => React.createElement(React.StrictMode, null, children),
     });
 
@@ -178,7 +178,7 @@ describe('useWindotWatchr', () => {
   it('supports generic type parameter', async () => {
     interface WindotSDK { init(): void }
 
-    const { result } = renderHook(() => useWindotWatchr<WindotSDK>(ROOT));
+    const { result } = renderHook(() => useWatchWindot<WindotSDK>(ROOT));
 
     await act(async () => {
       (window as unknown as WindotRecord)[ROOT] = { init: () => {} };
@@ -194,7 +194,7 @@ describe('useWindotWatchr', () => {
     const watchSpy = vi.spyOn(await import('../index.js'), 'watchWindot');
 
     const { rerender } = renderHook(
-      ({ opts }) => useWindotWatchr(ROOT, opts),
+      ({ opts }) => useWatchWindot(ROOT, opts),
       { initialProps: { opts: { pollInterval: 100 } } },
     );
 

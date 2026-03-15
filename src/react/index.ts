@@ -7,6 +7,6 @@
  *
  * @packageDocumentation
  */
-export { useWindotWatchr } from './use-windotwatchr.js';
-export type { WindotWatchrResult } from './use-windotwatchr.js';
-export type { WindotWatchrOptions, WatcherState } from '../types.js';
+export { useWatchWindot } from './use-watch-windot.js';
+export type { WatchWindotResult } from './use-watch-windot.js';
+export type { WatchWindotOptions, WatcherState } from '../types.js';

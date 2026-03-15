@@ -1,18 +1,18 @@
-# React Hook — useWindotWatchr
+# React Hook — useWatchWindot
 
 ## Signature
 
 ```ts
-function useWindotWatchr<T = unknown>(
+function useWatchWindot<T = unknown>(
   path: string,
-  options?: WindotWatchrOptions,
-): WindotWatchrResult<T>;
+  options?: WatchWindotOptions,
+): WatchWindotResult<T>;
 ```
 
 ## Return Type
 
 ```ts
-interface WindotWatchrResult<T> {
+interface WatchWindotResult<T> {
   value: T | null;      // Resolved value, or null if not yet available
   status: WatcherState; // 'watching' | 'ready' | 'timeout' | 'error'
   error: Error | null;  // Error object if status === 'error', otherwise null
@@ -32,10 +32,10 @@ Mount → { value: null, status: 'watching', error: null }
 ## Basic Usage
 
 ```tsx
-import { useWindotWatchr } from 'windotwatchr/react';
+import { useWatchWindot } from 'windotwatchr/react';
 
 function StripeButton() {
-  const { value: stripe, status, error } = useWindotWatchr<Stripe>('Stripe', {
+  const { value: stripe, status, error } = useWatchWindot<Stripe>('Stripe', {
     timeout: 10_000,
   });
 
@@ -109,7 +109,7 @@ When `path` changes, the hook resets to initial state and creates a new watcher:
 ```tsx
 // Switching from Stripe to Maps:
 const [sdkPath, setSdkPath] = useState('Stripe');
-const { value, status } = useWindotWatchr(sdkPath);
+const { value, status } = useWatchWindot(sdkPath);
 // When setSdkPath('google.maps') → status resets to 'watching'
 ```
 
@@ -129,9 +129,9 @@ In SSR (no `window`), `watchWindot` returns a no-op dispose. The hook renders wi
 
 ```tsx
 function Dashboard() {
-  const stripe = useWindotWatchr<Stripe>('Stripe');
-  const maps = useWindotWatchr<GoogleMaps>('google.maps');
-  const analytics = useWindotWatchr('dataLayer');
+  const stripe = useWatchWindot<Stripe>('Stripe');
+  const maps = useWatchWindot<GoogleMaps>('google.maps');
+  const analytics = useWatchWindot('dataLayer');
 
   return (
     <div>
@@ -147,7 +147,7 @@ function Dashboard() {
 
 ```tsx
 function SDKLoader({ path, children }: { path: string; children: (value: any) => ReactNode }) {
-  const { value, status, error } = useWindotWatchr(path);
+  const { value, status, error } = useWatchWindot(path);
 
   switch (status) {
     case 'watching': return <Skeleton />;
@@ -163,7 +163,7 @@ function SDKLoader({ path, children }: { path: string; children: (value: any) =>
 
 ```tsx
 // Watches acmePayments.ui.components — deep sub-API
-const { value: components, status } = useWindotWatchr<AcmeComponents>(
+const { value: components, status } = useWatchWindot<AcmeComponents>(
   'acmePayments.ui.components',
 );
 
@@ -179,7 +179,7 @@ useEffect(() => {
 
 ```tsx
 // SDK creates a stub immediately, but `loaded` flips to true later
-const { value, status } = useWindotWatchr('acmePx', {
+const { value, status } = useWatchWindot('acmePx', {
   ready: (v) => typeof v === 'object' && v !== null && (v as any).loaded === true,
 });
 ```

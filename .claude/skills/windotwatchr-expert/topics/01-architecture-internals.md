@@ -56,9 +56,9 @@ index.ts
        └─ core/poll-fallback.ts (resolvePath utility)
 
 react/index.ts
-  └─ react/use-windotwatchr.ts
+  └─ react/use-watch-windot.ts
        ├─ index.ts (watchWindot)
-       └─ types.ts (WindotWatchrOptions, WatcherState)
+       └─ types.ts (WatchWindotOptions, WatcherState)
 ```
 
 ## The `Reflect.set(target, prop, value, target)` Pattern

@@ -98,10 +98,10 @@ export function dispatchWatcherEvent(
 
 ## React Hook Integration
 
-The `useWindotWatchr` hook listens to `ww:ready`, `ww:timeout`, and `ww:error` to drive status transitions. Each listener filters by `detail.path === path` to handle only its own path.
+The `useWatchWindot` hook listens to `ww:ready`, `ww:timeout`, and `ww:error` to drive status transitions. Each listener filters by `detail.path === path` to handle only its own path.
 
 ```ts
-// Simplified from use-windotwatchr.ts:
+// Simplified from use-watch-windot.ts:
 const onReady = (e: Event) => {
   const detail = (e as CustomEvent).detail as { path: string };
   if (detail.path === path) setStatus('ready');

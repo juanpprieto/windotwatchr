@@ -1,4 +1,4 @@
-import type { DisposeFunction, SubscriberCallback, WindotWatchrOptions } from '../types.js';
+import type { DisposeFunction, SubscriberCallback, WatchWindotOptions } from '../types.js';
 import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from '../types.js';
 import { dispatchWatcherEvent } from './event-dispatcher.js';
 import { createProxyWrapper } from './proxy-wrapper.js';
@@ -74,7 +74,7 @@ function parsePath(path: string): [rootKey: string, subPath: string | undefined]
  * @param options - Polling interval and readiness predicate.
  * @returns The created RootWatcher.
  */
-function createRootWatcher(rootKey: string, options: WindotWatchrOptions): RootWatcher {
+function createRootWatcher(rootKey: string, options: WatchWindotOptions): RootWatcher {
   const subManager = new SubscriptionManager();
   const proxyWrapper = createProxyWrapper(subManager);
   const pollInterval = options.pollInterval ?? DEFAULT_POLL_INTERVAL;
@@ -141,7 +141,7 @@ function teardownRootWatcher(rootKey: string, watcher: RootWatcher): void {
 export function watch(
   path: string,
   callback: SubscriberCallback,
-  options: WindotWatchrOptions = {},
+  options: WatchWindotOptions = {},
 ): DisposeFunction {
   const [rootKey, subPath] = parsePath(path);
   const predicate = options.ready ?? defaultReadyPredicate;

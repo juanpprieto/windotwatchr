@@ -18,8 +18,8 @@ src/
 │   └── poll-fallback.ts              # resolvePath + setTimeout chain
 └── react/
     ├── index.ts                      # Barrel export
-    ├── use-windotwatchr.ts           # React hook implementation
-    └── use-windotwatchr.test.ts      # Hook tests
+    ├── use-watch-windot.ts           # React hook implementation
+    └── use-watch-windot.test.ts      # Hook tests
 ```
 
 Every `.ts` file has a co-located `.test.ts` file.
@@ -149,10 +149,10 @@ Or use `queueMicrotask` / `Promise.resolve().then()` + `vi.runAllTicks()`.
 
 ```ts
 import { renderHook, act } from '@testing-library/react';
-import { useWindotWatchr } from './use-windotwatchr.js';
+import { useWatchWindot } from './use-watch-windot.js';
 
 it('transitions to ready when value appears', async () => {
-  const { result } = renderHook(() => useWindotWatchr('testSDK'));
+  const { result } = renderHook(() => useWatchWindot('testSDK'));
 
   expect(result.current.status).toBe('watching');
   expect(result.current.value).toBeNull();

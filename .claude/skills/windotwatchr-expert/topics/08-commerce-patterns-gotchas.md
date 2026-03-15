@@ -22,7 +22,7 @@ try {
 ```tsx
 // React — BNPL promo component
 function BNPLPromo({ amount }: { amount: number }) {
-  const { value: components, status } = useWindotWatchr<PaymentComponents>(
+  const { value: components, status } = useWatchWindot<PaymentComponents>(
     'acmePayments.ui.components', // Deep nested path
   );
 
@@ -56,7 +56,7 @@ const map = new maps.Map(element, { center: { lat: 40, lng: -74 }, zoom: 12 });
 ```tsx
 // React pattern
 function MapView() {
-  const { value: maps, status } = useWindotWatchr<typeof google.maps>('google.maps');
+  const { value: maps, status } = useWatchWindot<typeof google.maps>('google.maps');
   const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ Analytics SDKs often create a stub (array or function) immediately, then replace
 
 ```tsx
 // Watch for the real SDK, not the stub
-const { value, status } = useWindotWatchr('analytics', {
+const { value, status } = useWatchWindot('analytics', {
   ready: (v) =>
     typeof v === 'object' &&
     v !== null &&
@@ -105,7 +105,7 @@ function Dashboard() {
 }
 
 function SDKStatus({ name, path, ready }: { name: string; path: string; ready?: (v: unknown) => boolean }) {
-  const { value, status } = useWindotWatchr(path, { ready });
+  const { value, status } = useWatchWindot(path, { ready });
   return (
     <div>
       <strong>{name}</strong>: {status}
@@ -129,7 +129,7 @@ useEffect(() => {
 }, []);
 
 // Separate hook watches for the global:
-const { value: sdk, status } = useWindotWatchr('VendorSDK');
+const { value: sdk, status } = useWatchWindot('VendorSDK');
 ```
 
 ---
@@ -154,7 +154,7 @@ const { value: sdk, status } = useWindotWatchr('VendorSDK');
 
 - **Use generic type parameter** for full TypeScript safety
   ```ts
-  const { value } = useWindotWatchr<Stripe>('Stripe');
+  const { value } = useWatchWindot<Stripe>('Stripe');
   // value is Stripe | null, not unknown
   ```
 

@@ -98,10 +98,10 @@ const ap = await waitForWindot<typeof AfterPay>('AfterPay', {
 ### React Hook
 
 ```tsx
-import { useWindotWatchr } from 'windotwatchr/react';
+import { useWatchWindot } from 'windotwatchr/react';
 
 function Checkout() {
-  const { value: afterPay, status, error } = useWindotWatchr<typeof AfterPay>('AfterPay');
+  const { value: afterPay, status, error } = useWatchWindot<typeof AfterPay>('AfterPay');
 
   if (status === 'error')   return <p>Error: {error?.message}</p>;
   if (status === 'timeout') return <p>AfterPay took too long.</p>;
@@ -156,7 +156,7 @@ Watches a `window` property path. Calls `callback` with the resolved value when 
 
 Promise wrapper around `watchWindot`. Resolves when the value is ready, rejects on timeout or abort.
 
-### `useWindotWatchr<T>(path, options?): WindotWatchrResult<T>`
+### `useWatchWindot<T>(path, options?): WatchWindotResult<T>`
 
 React hook. Returns `{ value, status, error }`. Status transitions: `watching` &rarr; `ready` | `timeout` | `error`. Cleans up on unmount. StrictMode-safe.
 
@@ -176,8 +176,8 @@ Import from `windotwatchr/react`. React 16.8+ required.
 ### Types
 
 ```ts
-// Result shape from useWindotWatchr
-interface WindotWatchrResult<T> {
+// Result shape from useWatchWindot
+interface WatchWindotResult<T> {
   value: T | null;
   status: WatcherState;
   error: Error | null;
@@ -215,7 +215,7 @@ Both the core API and the React hook are SSR-safe. In non-browser environments:
 
 - `watchWindot` returns a no-op dispose function immediately.
 - `waitForWindot` rejects with an `Error`.
-- `useWindotWatchr` stays in `watching` status (no-op until hydration).
+- `useWatchWindot` stays in `watching` status (no-op until hydration).
 
 ## Examples
 
