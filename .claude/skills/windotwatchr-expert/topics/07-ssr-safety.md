@@ -154,7 +154,7 @@ windotwatchr works in edge runtimes that have `window` (browser-like). In server
 The library has dedicated SSR tests in `src/index.ssr.test.ts`:
 
 ```ts
-// Runs in jsdom with window deleted
+// Vitest server project runs under Bun with no window.
 describe('SSR (no window)', () => {
   it('watchWindot returns no-op dispose', () => {
     const dispose = watchWindot('test', vi.fn());

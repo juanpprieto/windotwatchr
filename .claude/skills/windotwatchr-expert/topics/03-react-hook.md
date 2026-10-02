@@ -1,189 +1,21 @@
-# React Hook — useWatchWindot
-
-## Signature
-
-```ts
-function useWatchWindot<T = unknown>(
-  path: string,
-  options?: WatchWindotOptions,
-): WatchWindotResult<T>;
-```
-
-## Return Type
-
-```ts
-interface WatchWindotResult<T> {
-  value: T | null;      // Resolved value, or null if not yet available
-  status: WatcherState; // 'watching' | 'ready' | 'timeout' | 'error'
-  error: Error | null;  // Error object if status === 'error', otherwise null
-}
-```
-
-## Status Lifecycle
-
-```
-Mount → { value: null, status: 'watching', error: null }
-         ↓
-    ww:ready event  → { value: <resolved>, status: 'ready', error: null }
-    ww:timeout event → { value: null, status: 'timeout', error: null }
-    ww:error event   → { value: null, status: 'error', error: <Error> }
-```
-
-## Basic Usage
+# React hook
 
 ```tsx
 import { useWatchWindot } from 'windotwatchr/react';
 
-function StripeButton() {
-  const { value: stripe, status, error } = useWatchWindot<Stripe>('Stripe', {
+function SDKStatus() {
+  const { value, status, error } = useWatchWindot('SDK.api', {
     timeout: 10_000,
+    ready: candidate => typeof candidate === 'function',
   });
-
-  if (status === 'error') return <div>Error: {error?.message}</div>;
-  if (status === 'timeout') return <div>Stripe is taking too long...</div>;
-  if (!stripe) return <div>Loading Stripe...</div>;
-
-  return (
-    <button onClick={() => stripe.redirectToCheckout({ sessionId: '...' })}>
-      Pay
-    </button>
-  );
+  return <p>{error?.message ?? (value ? 'API ready' : status)}</p>;
 }
 ```
 
-## How It Works Internally
+The hook gets lifecycle updates privately from its own registration. It does not listen to global ww events. Duplicate public correlation labels do not cause sibling status changes.
 
-1. **`useState`** tracks `value`, `status`, and `error`
-2. **`useEffect`** (dependency: `[path]`) sets up:
-   - `watchWindot()` call — callback updates `value` via `setValue`
-   - `ww:ready` listener → sets `status: 'ready'`
-   - `ww:timeout` listener → sets `status: 'timeout'`
-   - `ww:error` listener → sets `status: 'error'` + captures error
-3. **Cleanup** on unmount or path change:
-   - Calls `dispose()` from `watchWindot`
-   - Removes all three event listeners
+A ready callback sets value/status and clears an earlier error. An observed readiness loss clears value and returns to watching. A detection error clears value and sets error status; successful recovery can deliver again. A timeout sets timeout status while mounted detection remains available for late readiness. Abort clears value/error and sets idle. Unobserved raw changes can still leave stale UI until a poll or intercepted check.
 
-```tsx
-// Simplified internals:
-useEffect(() => {
-  setValue(null);
-  setStatus('watching');
-  setError(null);
+Path changes and changes to timeout, pollInterval, strategy, signal, retries, once or correlationId replace the registration and reset state. An unchanged options object's values do not restart it. The ready predicate is forwarded through a ref and rechecked in place when changed; inline predicates do not trigger a resubscription loop.
 
-  // Event listeners filter by path match
-  window.addEventListener('ww:ready', onReady);
-  window.addEventListener('ww:timeout', onTimeout);
-  window.addEventListener('ww:error', onError);
-
-  const dispose = watchWindot<T>(path, (val) => {
-    setValue(() => val);
-  }, optionsRef.current);
-
-  return () => {
-    dispose();
-    window.removeEventListener('ww:ready', onReady);
-    window.removeEventListener('ww:timeout', onTimeout);
-    window.removeEventListener('ww:error', onError);
-  };
-}, [path]); // Only path triggers re-run
-```
-
-## Key Behaviors
-
-### Options via Ref
-
-Options are stored in a `useRef` and read at notification time — NOT at hook initialization. This means changing options does NOT re-run the effect.
-
-```tsx
-const optionsRef = useRef(options);
-optionsRef.current = options;
-
-// In effect:
-const dispose = watchWindot<T>(path, cb, optionsRef.current);
-```
-
-### Path Change Resets State
-
-When `path` changes, the hook resets to initial state and creates a new watcher:
-
-```tsx
-// Switching from Stripe to Maps:
-const [sdkPath, setSdkPath] = useState('Stripe');
-const { value, status } = useWatchWindot(sdkPath);
-// When setSdkPath('google.maps') → status resets to 'watching'
-```
-
-### StrictMode Safety
-
-React StrictMode double-mounts components. The core engine's singleton registry handles this correctly through ref-counting — the first unmount decrements the subscriber count, the second mount increments it. No duplicate watchers or missed notifications.
-
-### SSR Safety
-
-In SSR (no `window`), `watchWindot` returns a no-op dispose. The hook renders with `{ value: null, status: 'watching', error: null }` — the effect never runs on the server.
-
-**Hydration note**: If you conditionally render based on `status`, the server will always render the `'watching'` state. Use `useEffect` gates for SSR-sensitive rendering.
-
-## Patterns
-
-### Multiple SDKs
-
-```tsx
-function Dashboard() {
-  const stripe = useWatchWindot<Stripe>('Stripe');
-  const maps = useWatchWindot<GoogleMaps>('google.maps');
-  const analytics = useWatchWindot('dataLayer');
-
-  return (
-    <div>
-      <SDKStatus name="Stripe" {...stripe} />
-      <SDKStatus name="Maps" {...maps} />
-      <SDKStatus name="Analytics" {...analytics} />
-    </div>
-  );
-}
-```
-
-### Conditional Rendering by Status
-
-```tsx
-function SDKLoader({ path, children }: { path: string; children: (value: any) => ReactNode }) {
-  const { value, status, error } = useWatchWindot(path);
-
-  switch (status) {
-    case 'watching': return <Skeleton />;
-    case 'timeout': return <RetryBanner />;
-    case 'error': return <ErrorBanner error={error} />;
-    case 'ready': return <>{children(value)}</>;
-    default: return null;
-  }
-}
-```
-
-### Deep Nested Path
-
-```tsx
-// Watches acmePayments.ui.components — deep sub-API
-const { value: components, status } = useWatchWindot<AcmeComponents>(
-  'acmePayments.ui.components',
-);
-
-useEffect(() => {
-  if (!components) return;
-  const promo = components.create('promo', { amount: 1999 });
-  promo.render('#container');
-  return () => promo.destroy();
-}, [components]);
-```
-
-### Custom Readiness Predicate
-
-```tsx
-// SDK creates a stub immediately, but `loaded` flips to true later
-const { value, status } = useWatchWindot('acmePx', {
-  ready: (v) => typeof v === 'object' && v !== null && (v as any).loaded === true,
-});
-```
-
-## Peer Dependency
-
-React is an **optional** peer dependency (`>=16.8.0`). Projects not using React don't need it installed — the `windotwatchr/react` entry point is a separate export.
+Cleanup marks the effect inactive before disposal, preventing queued state updates after unmount. Setup failures become hook errors and release acquired resources. StrictMode mounts/unmounts are covered by the core lifetime model. SSR does not register detection and remains watching until a browser effect runs.

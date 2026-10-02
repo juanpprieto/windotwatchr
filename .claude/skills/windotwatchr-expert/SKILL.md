@@ -1,17 +1,17 @@
 ---
 name: windotwatchr-expert
-description: "Expert for building with and contributing to windotwatchr — a zero-polling window.* property watcher. Covers the imperative API (watchWindot, waitForWindot), React hook (useWatchWindot), event system (ww:ready, ww:timeout, ww:error, ww:warning), detection strategies (Proxy, poll, auto), timeout/retry/abort patterns, SSR safety, commerce use cases (payment SDKs, maps, analytics), type system, gotchas, and contributor workflows for both core engine and React binding."
+description: "Expert for building with and contributing to windotwatchr — a window.* readiness watcher with interception and optional polling. Covers the imperative API (watchWindot, waitForWindot), React hook (useWatchWindot), event system (ww:ready, ww:timeout, ww:error, ww:warning) with correlation ids, detection strategies (Proxy, poll, auto) and the built-ins blocklist, descendant resolution of wholesale root assignments, once auto-dispose, Symbol.dispose/using, timeout/retry/abort patterns with DOMException rejections and signal.reason, SSR safety, commerce use cases (payment SDKs, maps, analytics), type system, gotchas, and contributor workflows for both core engine and React binding."
 license: MIT
 compatibility: "Works with any AI coding agent that supports the Agent Skills specification."
 metadata:
   author: juanpprieto
   version: "0.1.0"
-argument-hint: "windotwatchr, watchWindot, waitForWindot, useWatchWindot, ww:ready, ww:timeout, ww:error, ww:warning, proxy, poll, defineProperty, timeout, retries, abort, signal, dispose, SSR, react, hook, stripe, payments, maps, analytics, sdk, third-party, window, global, watcher, observer, subscribe, callback, promise, microtask, frozen, sealed, polling, fallback, contribute, test, types"
+argument-hint: "windotwatchr, watchWindot, waitForWindot, useWatchWindot, ww:ready, ww:timeout, ww:error, ww:warning, correlationId, proxy, poll, strategy, defineProperty, deleteProperty, descendant resolution, blocklist, timeout, retries, abort, signal, signal.reason, DOMException, TimeoutError, AbortError, once, Symbol.dispose, using, dispose, SSR, react, hook, stripe, payments, maps, analytics, sdk, third-party, window, global, watcher, observer, subscribe, callback, promise, microtask, frozen, sealed, polling, fallback, contribute, test, types"
 ---
 
 # windotwatchr Expert
 
-Comprehensive guide for using and contributing to [windotwatchr](https://github.com/juanpprieto/windotwatchr) — a zero-polling, event-driven library for detecting when third-party scripts attach globals to `window.*`.
+Comprehensive guide for using and contributing to [windotwatchr](https://github.com/juanpprieto/windotwatchr) — a library for detecting when watched `window.*` values satisfy a readiness predicate.
 
 > **Root**: Repository root (where `package.json` with `"name": "windotwatchr"` lives)
 > **Core engine**: `src/core/` — PropertyTrap, ProxyWrapper, SubscriptionManager, NotificationQueue, PollFallback, EventDispatcher
@@ -22,7 +22,7 @@ Comprehensive guide for using and contributing to [windotwatchr](https://github.
 
 ## Core Principles
 
-1. **Zero-polling by default** — Proxy + defineProperty traps detect assignments synchronously. Polling is a fallback for frozen/sealed objects only.
+1. **Coverage is explicit** — auto combines assignment interception with persistent snapshot checks; proxy disables detection polling, and poll preserves raw SDK identity.
 2. **SSR-safe** — All APIs no-op or reject in non-browser environments. No `window` reference at import time.
 3. **Dispose everything** — Every watcher returns a `DisposeFunction`. Always call it on cleanup.
 4. **Microtask delivery** — Callbacks fire on the next microtask, never synchronously (no Zalgo).
@@ -44,7 +44,7 @@ Match the user's request to one or more topics using the routing table below and
 | `timeout`, `retries`, `retry`, `abort`, `AbortController`, `AbortSignal`, `signal`, `reject`, `promise`, `timer`, `cancel`, `dispose` | `topics/06-timeout-retry-abort.md` |
 | `SSR`, `server`, `Node`, `Cloudflare`, `Vercel Edge`, `edge`, `hydration`, `window is not available`, `no-op`, `noop`, `Next.js`, `Remix` | `topics/07-ssr-safety.md` |
 | `commerce`, `payment`, `Stripe`, `checkout`, `maps`, `analytics`, `pixel`, `SDK`, `third-party`, `script`, `use case`, `pattern`, `example`, `gotcha`, `DO`, `DON'T`, `mistake`, `best practice`, `tips` | `topics/08-commerce-patterns-gotchas.md` |
-| `contribute`, `contributor`, `PR`, `test`, `testing`, `TSDoc`, `lint`, `build`, `module`, `dependency`, `resetRegistry`, `vitest`, `jsdom`, `core`, `react binding` | `topics/09-contributing.md` |
+| `contribute`, `contributor`, `PR`, `test`, `testing`, `TSDoc`, `lint`, `build`, `module`, `dependency`, `resetRegistry`, `vitest`, `Bun`, `Vite`, `ESM`, `core`, `react binding` | `topics/09-contributing.md` |
 
 ## Cross-References
 
@@ -68,7 +68,7 @@ Match the user's request to one or more topics using the routing table below and
 4. **Always recommend dispose** — every code example should show cleanup.
 5. **SSR context matters** — if the user is in Next.js/Remix, always mention SSR behavior.
 6. **Type safety** — always use generic type parameter `<T>` in examples.
-7. **No polling by default** — clarify that the library is zero-polling; polling is a fallback only.
+7. **Explain coverage** — raw writes, closure getters, locked objects and external readiness flags may require polling. Script loading does not establish API readiness.
 8. **Gotchas first** — when reviewing code, check against known gotchas in topic 08.
 9. **Test patterns** — when helping contributors, reference test utilities from topic 09.
-10. **Events for orchestration** — recommend `ww:*` events for cross-component coordination.
+10. **Events for diagnostics** — ready/error/timeout events are per subscription; global listeners must account for cardinality and caller-supplied duplicate labels.

@@ -1,193 +1,88 @@
 import type { DisposeFunction } from '../types.js';
-import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from '../types.js';
 import { dispatchWatcherEvent } from './event-dispatcher.js';
 import type { ProxyWrapper } from './proxy-wrapper.js';
 import type { SubscriptionManager } from './subscription-manager.js';
-import { startPolling } from './poll-fallback.js';
+import { unwrapProxy } from './proxy-identity.js';
+
+/** A disposer can test ownership before a registry entry is reused. */
+export type TrapDispose = DisposeFunction & { ownsProperty(): boolean };
 
 /**
- * Configuration for {@link installTrap}.
+ * Intercept configurable roots while preserving native descriptor semantics.
+ * Restoration only changes a descriptor still owned by this trap, and always
+ * restores the raw SDK value. Accessor setters/getters remain authoritative.
+ * @param rootKey - Window property to intercept.
+ * @param subManager - Subscription routing.
+ * @param proxyWrapper - Wrapper/identity metadata for this root.
+ * @returns Idempotent disposer with an ownership check.
+ * @example const dispose = installTrap('SDK', manager, wrapper); dispose();
  */
-export interface TrapOptions {
-  /**
-   * Polling fallback interval in ms.
-   * Used when Proxy wrapping fails (frozen/sealed) or defineProperty fails.
-   * Defaults to {@link DEFAULT_POLL_INTERVAL} (100ms). Set to `0` to disable.
-   */
-  pollInterval?: number;
-
-  /**
-   * Readiness predicate for the root-level value.
-   * Defaults to {@link defaultReadyPredicate} (`value != null`).
-   */
-  readyPredicate?: (value: unknown) => boolean;
-}
-
-/**
- * Install an `Object.defineProperty` setter/getter trap on `window`
- * for a given root key.
- *
- * When a third-party script assigns `window[rootKey] = value`, the
- * setter fires and:
- * 1. Wraps the value in an ES6 Proxy via {@link ProxyWrapper}.
- * 2. Notifies subscribers of the root key via {@link SubscriptionManager}.
- * 3. If the value is frozen/sealed (Proxy returns `null`), starts
- *    {@link startPolling | polling} as a fallback.
- *
- * The getter returns `undefined` before any assignment, mimicking an
- * absent property so SDKs that check `typeof window.Stripe` see
- * `"undefined"` as expected.
- *
- * The setter remains active after first assignment to handle root
- * replacement (e.g., SDK re-assigns `window.Stripe = newObj`). Each
- * reassignment re-wraps in a new Proxy and re-notifies.
- *
- * If `Object.defineProperty` itself fails (e.g., another script already
- * defined the property with `configurable: false`), falls back to polling
- * for the root key.
- *
- * @param rootKey - The top-level property name on `window` (e.g., `"Stripe"`).
- * @param subManager - SubscriptionManager to notify on assignment.
- * @param proxyWrapper - ProxyWrapper to wrap assigned values.
- * @param options - Optional polling interval and readiness predicate.
- * @returns Dispose function that removes the trap and restores the
- *   original property descriptor (if one existed).
- *
- * @example
- * ```ts
- * const dispose = installTrap('Stripe', subManager, proxyWrapper, {
- *   pollInterval: 100,
- *   readyPredicate: (v) => v != null,
- * });
- *
- * // Third-party script later does: window.Stripe = { checkout: {...} }
- * // → setter fires → ProxyWrapper wraps → subscribers notified
- *
- * // Cleanup:
- * dispose();
- * ```
- */
-export function installTrap(
-  rootKey: string,
-  subManager: SubscriptionManager,
-  proxyWrapper: ProxyWrapper,
-  options?: TrapOptions,
-): DisposeFunction {
-  const pollInterval = options?.pollInterval ?? DEFAULT_POLL_INTERVAL;
-  const predicate = options?.readyPredicate ?? defaultReadyPredicate;
-
-  /** Saved original descriptor to restore on dispose. */
-  const originalDescriptor = Object.getOwnPropertyDescriptor(window, rootKey);
-
-  /** Current proxied value. `undefined` before first assignment. */
-  let currentValue: unknown = undefined;
-
-  /** Dispose function for active poll fallback, if any. */
-  let pollDispose: DisposeFunction | null = null;
-
-  /** Whether this trap has been disposed. */
+export function installTrap(rootKey: string, subManager: SubscriptionManager, proxyWrapper: ProxyWrapper): TrapDispose {
+  const original = Object.getOwnPropertyDescriptor(window, rootKey);
+  let raw: unknown;
+  let assigned = false;
   let disposed = false;
 
-  /**
-   * Handle a new value being assigned to `window[rootKey]`.
-   *
-   * Attempts to Proxy-wrap the value. If wrapping fails (frozen/sealed),
-   * starts polling as fallback.
-   *
-   * @param newValue - The value assigned to `window[rootKey]`.
-   */
-  const handleAssignment = (newValue: unknown): void => {
-    // Stop any existing poll fallback from a previous assignment
-    if (pollDispose) {
-      pollDispose();
-      pollDispose = null;
+  const readOriginal = (): unknown => original && 'value' in original ? raw : original?.get?.call(window);
+  const wrap = (value: unknown): unknown => {
+    value = unwrapProxy(value);
+    if (disposed) {return value;}
+    if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {return value;}
+    const proxy = proxyWrapper.wrap(value, rootKey);
+    if (proxy) {return proxy;}
+    return value;
+  };
+  const getter = (): unknown => {
+    if (original && !('value' in original)) {raw = readOriginal();}
+    return wrap(raw);
+  };
+  const canWrite = !original || ('value' in original ? original.writable !== false : original.set !== undefined);
+  const setter = canWrite ? (value: unknown): void => {
+    value = unwrapProxy(value);
+    if (original && !('value' in original)) {
+      original.set!.call(window, value);
+      assigned = true;
+      subManager.notifyResolved(rootKey, () => { raw = readOriginal(); return wrap(raw); });
+      return;
+    } else {raw = value;}
+    assigned = true;
+    const observed = wrap(raw);
+    if (raw !== null && (typeof raw === 'object' || typeof raw === 'function') && observed === raw && (Object.isFrozen(raw) || Object.isSealed(raw))) {
+      dispatchWatcherEvent('ww:warning', { path: rootKey, reason: Object.isFrozen(raw) ? 'frozen' : 'sealed' });
     }
-
-    if (newValue !== null && typeof newValue === 'object') {
-      const proxied = proxyWrapper.wrap(newValue, rootKey);
-
-      if (proxied) {
-        // Proxy wrapping succeeded — store proxied value
-        currentValue = proxied;
-      } else {
-        // Frozen/sealed — store raw value, start polling
-        const reason = Object.isFrozen(newValue) ? 'frozen' : 'sealed';
-        dispatchWatcherEvent('ww:warning', { path: rootKey, reason });
-        currentValue = newValue;
-        if (pollInterval > 0) {
-          pollDispose = startPolling(rootKey, subManager, {
-            interval: pollInterval,
-            readyPredicate: predicate,
-          });
-        }
-      }
-    } else {
-      // Primitive or null — store as-is, no proxy needed
-      currentValue = newValue;
-    }
-
-    subManager.notify(rootKey, currentValue);
+    subManager.notify(rootKey, observed);
+  } : undefined;
+  const ownsProperty = (): boolean => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, rootKey);
+    return !disposed && descriptor?.configurable === true && descriptor.get === getter && descriptor.set === setter;
   };
 
   try {
-    // If the property already has a value, capture it before trapping
-    const existingValue = originalDescriptor?.value
-      ?? (originalDescriptor?.get ? originalDescriptor.get.call(window) : undefined);
-
+    raw = original && 'value' in original ? unwrapProxy(original.value) : original?.get?.call(window);
     Object.defineProperty(window, rootKey, {
-      configurable: true,
-      enumerable: true,
-      get() {
-        return currentValue;
-      },
-      set(newValue: unknown) {
-        handleAssignment(newValue);
-      },
+      configurable: true, enumerable: original?.enumerable ?? true, get: getter,
+      ...(setter ? { set: setter } : {}),
     });
-
-    // If a value already existed, process it through the assignment handler
-    if (existingValue !== undefined) {
-      handleAssignment(existingValue);
+    const observed = wrap(raw);
+    if (raw !== null && (typeof raw === 'object' || typeof raw === 'function') && observed === raw && (Object.isFrozen(raw) || Object.isSealed(raw))) {
+      dispatchWatcherEvent('ww:warning', { path: rootKey, reason: Object.isFrozen(raw) ? 'frozen' : 'sealed' });
     }
+    subManager.notify(rootKey, observed, 'snapshot');
   } catch {
-    // defineProperty failed — another script may have locked the property.
-    // Fall back to polling for the root key.
     dispatchWatcherEvent('ww:warning', { path: rootKey, reason: 'defineProperty failed' });
-    if (pollInterval > 0) {
-      pollDispose = startPolling(rootKey, subManager, {
-        interval: pollInterval,
-        readyPredicate: predicate,
-      });
-    }
   }
 
-  return () => {
-    if (disposed) {
-      return;
-    }
+  const dispose = (): void => {
+    if (disposed) {return;}
+    const owns = ownsProperty();
     disposed = true;
-
-    // Stop poll fallback if active
-    if (pollDispose) {
-      pollDispose();
-      pollDispose = null;
-    }
-
-    // Restore original property descriptor or delete the trap
-    try {
-      if (originalDescriptor) {
-        Object.defineProperty(window, rootKey, originalDescriptor);
-      } else {
-        // Property didn't exist before — remove our descriptor and set
-        // the current value as a normal property (preserving SDK state)
-        delete (window as unknown as Record<string, unknown>)[rootKey];
-        if (currentValue !== undefined) {
-          (window as unknown as Record<string, unknown>)[rootKey] = currentValue;
-        }
-      }
-    } catch {
-      // Best-effort restore. If it fails, the property may be in an
-      // unexpected state, but we don't want dispose() to throw.
+    if (!owns) {return;}
+    if (original) {
+      Object.defineProperty(window, rootKey, 'value' in original ? { ...original, value: raw } : original);
+    } else {
+      delete (window as unknown as Record<string, unknown>)[rootKey];
+      if (assigned) {Object.defineProperty(window, rootKey, { value: raw, writable: true, enumerable: true, configurable: true });}
     }
   };
+  return Object.assign(dispose, { ownsProperty });
 }

@@ -111,7 +111,7 @@ describe('waitForWindot', () => {
     }).not.toThrow();
   });
 
-  it('rejects on timeout with descriptive Error', async () => {
+  it('rejects on timeout with a TimeoutError DOMException', async () => {
     vi.useFakeTimers();
 
     const promise = waitForWindot(ROOT, { timeout: 500, pollInterval: 0 });
@@ -126,6 +126,10 @@ describe('waitForWindot', () => {
     expect(rejectedError!.message).toBe(
       `windotwatchr: timeout after 500ms waiting for "${ROOT}"`,
     );
+    // In supported browsers the rejection
+    // is a DOMException named "TimeoutError" — aligning with AbortSignal.timeout.
+    expect(rejectedError!.name).toBe('TimeoutError');
+    expect(rejectedError instanceof DOMException).toBe(true);
 
     vi.useRealTimers();
   });
@@ -178,22 +182,36 @@ describe('waitForWindot', () => {
     vi.useRealTimers();
   });
 
-  it('with AbortSignal: abort rejects', async () => {
+  it('abort rejects with the signal.reason (custom reason propagates)', async () => {
     const ctrl = new AbortController();
     const promise = waitForWindot(ROOT, { signal: ctrl.signal });
 
-    ctrl.abort();
+    const reason = new Error('user cancelled');
+    ctrl.abort(reason);
 
-    await expect(promise).rejects.toThrow('windotwatchr: aborted');
+    await expect(promise).rejects.toBe(reason);
   });
 
-  it('with already-aborted signal rejects immediately', async () => {
+  it('abort with no reason rejects with an AbortError DOMException', async () => {
     const ctrl = new AbortController();
-    ctrl.abort();
+    const promise = waitForWindot(ROOT, { signal: ctrl.signal });
+
+    ctrl.abort(); // default reason
+
+    let rejected: unknown;
+    await promise.catch((e) => { rejected = e; });
+    // AbortController.abort() with no reason sets signal.reason to an
+    // AbortError DOMException; we reject with exactly that.
+    expect((rejected as Error).name).toBe('AbortError');
+  });
+
+  it('with already-aborted signal rejects immediately with its reason', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort('early');
 
     await expect(
       waitForWindot(ROOT, { signal: ctrl.signal }),
-    ).rejects.toThrow('windotwatchr: aborted');
+    ).rejects.toBe('early');
   });
 
   it('dispatches ww:timeout event during timeout', async () => {

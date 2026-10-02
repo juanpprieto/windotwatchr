@@ -1,15 +1,15 @@
 # Next.js Example
 
-Detects four third-party SDKs on `window` without polling, using windotwatchr inside a Next.js App Router project with server-side rendering.
+Detects four mock third-party SDKs on `window` with windotwatchr interception and optional snapshot polling inside a Next.js App Router project with server-side rendering.
 
 ## Quick Start
 
 ```bash
 # from the repo root
-pnpm install
-pnpm build          # build the library first
+bun install --frozen-lockfile
+bun run build          # build the library first
 cd examples/nextjs
-npm run dev          # http://localhost:3000/windotwatchr/nextjs/
+bun run dev          # http://localhost:3000/windotwatchr/nextjs/
 ```
 
 ## Pages

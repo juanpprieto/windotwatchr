@@ -1,29 +1,17 @@
 {
   "name": "windotwatchr",
   "version": "0.2.0",
-  "description": "Zero-polling, event-driven detection of window.* global properties and nested sub-APIs.",
+  "description": "Readiness detection for window.* globals and nested APIs, using interception and optional polling.",
   "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./react": {
-      "import": {
-        "types": "./dist/react.d.ts",
-        "default": "./dist/react.js"
-      },
-      "require": {
-        "types": "./dist/react.d.cts",
-        "default": "./dist/react.cjs"
-      }
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react.js"
     }
   },
   "files": [
@@ -48,38 +36,47 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsup",
-    "lint": "oxlint --ignore-pattern 'next-env.d.ts'",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "build": "bun scripts/build.ts",
+    "lint": "bun --bun run oxlint --ignore-pattern next-env.d.ts",
+    "test": "bun --bun run vitest run --project server-imports --project 'browser (chromium)' --project 'browser (firefox)'",
+    "test:all": "bun --bun run vitest run",
+    "test:consumers": "bun scripts/check-consumers.ts",
+    "test:consumers:minimum": "bun scripts/check-consumers.ts --minimum",
+    "check:dependencies": "bun scripts/check-dependencies.ts",
+    "docs:check": "bun scripts/check-docs.ts",
+    "test:watch": "bun --bun run vitest --project server-imports --project 'browser (chromium)' --project 'browser (firefox)'",
+    "typecheck": "bun --bun run tsc --noEmit",
     "prepare": "husky",
-    "check": "pnpm typecheck && pnpm lint && pnpm test",
-    "changeset": "changeset",
-    "version": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "check": "bun run typecheck && bun run lint && bun run test",
+    "changeset": "bun --bun run changeset",
+    "version": "bun --bun run changeset version",
+    "test:compatibility": "bun scripts/check-compatibility.ts",
+    "test:e2e": "bun run --cwd e2e test",
+    "build:examples": "bun run --cwd examples/vite-react build && bun run --cwd examples/nextjs build"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "oxlint"
+      "oxlint --ignore-pattern next-env.d.ts"
     ]
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^0.6.0",
-    "@changesets/cli": "^2.30.0",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitest/browser-playwright": "5.0.3",
     "husky": "^9.1.7",
-    "jsdom": "^25.0.0",
-    "lint-staged": "^16.4.0",
-    "oxlint": "^1.55.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tsup": "^8.0.0",
-    "typescript": "^5.5.0",
-    "vitest": "^3.0.0"
+    "lint-staged": "^17.6.0",
+    "oxlint": "^1.86.0",
+    "playwright": "1.63.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
   },
   "peerDependencies": {
     "react": ">=16.8.0"
@@ -100,10 +97,13 @@
     "hook"
   ],
   "author": "Juan Prieto",
-  "packageManager": "pnpm@10.19.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
-  }
+  "packageManager": "bun@1.4.2",
+  "types": "./dist/index.d.ts",
+  "trustedDependencies": [
+    "esbuild"
+  ],
+  "workspaces": [
+    "examples/*",
+    "e2e"
+  ]
 }

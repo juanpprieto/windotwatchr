@@ -1,6 +1,8 @@
 # Commerce Patterns & Gotchas
 
-## Real-World Use Cases
+These examples illustrate application patterns; they do not establish current vendor API compatibility. Prefer documented SDK readiness callbacks/promises when available and verify vendor APIs separately.
+
+## Application patterns
 
 ### Payment SDK (Stripe-like)
 
@@ -229,7 +231,7 @@ const { value: sdk, status } = useWatchWindot('VendorSDK');
   const sdk = await waitForWindot('SDK');
   ```
 
-- **Don't poll when you don't need to** — zero-polling is the default
+- **Choose coverage deliberately** — auto enables persistent snapshots; proxy-only cannot observe retained raw writes or closure/external-state changes
   ```ts
   // Unnecessary — Proxy handles this:
   watchWindot('SDK', cb, { pollInterval: 50 }); // Over-polling

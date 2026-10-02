@@ -89,7 +89,8 @@ export default function DashboardPage() {
           name="analytics"
           path="acmeDataLayer"
           testId="sdk-analytics"
-          description="Sync inline global. The array exists the moment the script executes, so detection is immediate."
+          description="Sync inline global. The array exists the moment the script executes, so detection is immediate. Uses once so the watcher disposes after the first hit."
+          options={{ once: true }}
         />
         <SDKCard
           name="pixel"
@@ -110,7 +111,8 @@ export default function DashboardPage() {
           name="maps"
           path="acme.maps.Map"
           testId="sdk-maps"
-          description="Incremental namespace building. The root, maps sub-namespace, and Map constructor arrive in 3 separate stages at different times."
+          description="Incremental namespace building. The root, maps sub-namespace, and Map constructor arrive in 3 separate stages at different times. Uses strategy: 'poll' — no Proxy, pure polling."
+          options={{ strategy: 'poll' }}
         />
       </div>
     </main>
@@ -150,6 +152,11 @@ function SDKCard({
 
   const colors = STATUS_COLORS[status] ?? STATUS_COLORS.watching;
 
+  const optionLabels: string[] = [];
+  if (options?.strategy) { optionLabels.push(`strategy: '${options.strategy}'`); }
+  if (options?.once) { optionLabels.push('once'); }
+  if (options?.ready) { optionLabels.push('ready'); }
+
   return (
     <div
       data-testid={testId}
@@ -168,6 +175,11 @@ function SDKCard({
       <p style={{ color: '#a6adc8', margin: '0.25rem 0' }}>
         Path: <code style={{ color: '#b4befe' }}>{path}</code>
       </p>
+      {optionLabels.length > 0 && (
+        <p style={{ color: '#a6adc8', margin: '0.25rem 0' }}>
+          Options: <code style={{ color: '#b4befe' }}>{optionLabels.join(', ')}</code>
+        </p>
+      )}
       <p style={{ margin: '0.25rem 0' }}>
         Status: <strong style={{ color: colors.text }}>{status}</strong>
       </p>

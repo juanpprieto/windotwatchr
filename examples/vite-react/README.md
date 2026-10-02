@@ -1,15 +1,15 @@
 # Vite + React Example
 
-Detects four third-party SDKs on `window` without polling, using windotwatchr inside a client-side React SPA built with Vite.
+Detects four mock third-party SDKs on `window` with windotwatchr interception and optional snapshot polling inside a client-side React SPA built with Vite.
 
 ## Quick Start
 
 ```bash
 # from the repo root
-pnpm install
-pnpm build          # build the library first
+bun install --frozen-lockfile
+bun run build          # build the library first
 cd examples/vite-react
-npm run dev          # http://localhost:5173/windotwatchr/vite-react/
+bun run dev          # http://localhost:5173/windotwatchr/vite-react/
 ```
 
 ## Pages

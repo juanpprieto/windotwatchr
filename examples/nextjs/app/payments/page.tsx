@@ -268,7 +268,7 @@ function OldWayPromo({ amount }: { amount: number }) {
 }
 
 /**
- * windotwatchr approach — zero-polling, event-driven SDK detection.
+ * windotwatchr approach — interception with optional polling, event-driven SDK detection.
  *
  * Uses `useWatchWindot<AcmeComponents>` to watch the deep-nested path
  * `acmePayments.ui.components`. The core engine installs a PropertyTrap
@@ -320,7 +320,7 @@ function NewWayPromo({ amount }: { amount: number }) {
       <div style={{ marginBottom: '0.75rem' }}>
         <p style={{ color: statusColor, margin: 0 }}>
           Status: <strong>{status}</strong>
-          {status === 'watching' && ' (zero-polling)'}
+          {status === 'watching' && ' (interception with optional polling)'}
         </p>
       </div>
       <div id="new-way-container" ref={containerRef} />

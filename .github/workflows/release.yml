@@ -1,4 +1,4 @@
-name: Release
+name: Prepare Version PR
 on:
   push:
     branches: [main]
@@ -9,24 +9,16 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
-          node-version: '22'
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest
-      - run: pnpm install --frozen-lockfile
-      - uses: changesets/action@v1
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - uses: changesets/action@v2.1.2
         with:
-          publish: pnpm release
-          version: pnpm run version
-          createGithubReleases: true
+          version: bun run version
           title: 'Version Packages'
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true

@@ -1,0 +1,37 @@
+{
+  "baseline": {
+    "version": "0.2.0",
+    "integrity": "sha512-OUlrFoL6DlcRxvnKhwXnBRVaroT09Ibk88MnIJRqUEtf0ya8mK+JODTQtCx9/oqmV58lu5tYiZe/F9z1jqNA2w=="
+  },
+  "candidate": {
+    "version": "0.2.0",
+    "integrity": "sha512-g0QP1cvP+321PdL4OJATKNbIGFwU9fLLg053Hxje5dAN2cpY5txLlTvibRcE1K/r/aLi+p0ZBuVYof3293R0zA=="
+  },
+  "bun": "1.4.2",
+  "browser": "153.0.8010.12",
+  "format": "ESM",
+  "results": {
+    "baseline": {
+      "equalAssignments": 2,
+      "readyEventsForTwoSubscriptions": 1,
+      "predicateEscapesSDKWrite": false,
+      "restoresRawRoot": true,
+      "nonconfigurableStrictReady": 1,
+      "callableRootDeliveries": 0,
+      "fractionalTimeoutName": "Error",
+      "fractionalTimeoutLeavesTrap": false,
+      "abortNullPreserved": false
+    },
+    "candidate": {
+      "equalAssignments": 2,
+      "readyEventsForTwoSubscriptions": 2,
+      "predicateEscapesSDKWrite": false,
+      "restoresRawRoot": true,
+      "nonconfigurableStrictReady": 1,
+      "callableRootDeliveries": 1,
+      "fractionalTimeoutName": "TimeoutError",
+      "fractionalTimeoutLeavesTrap": false,
+      "abortNullPreserved": true
+    }
+  }
+}

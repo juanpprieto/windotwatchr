@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test",
-    "test:nextjs": "playwright test --project=nextjs",
-    "test:vite-react": "playwright test --project=vite-react"
+    "test": "bun --bun run playwright test",
+    "test:nextjs": "bun --bun run playwright test --project=nextjs",
+    "test:vite-react": "bun --bun run playwright test --project=vite-react"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0"
+    "@playwright/test": "^1.63.0"
   }
 }

@@ -37,6 +37,7 @@ test.describe('Core features — Next.js', () => {
     const result = await page.evaluate(() => {
       const { waitForWindot } = (window as any).__ww;
       return waitForWindot('acme.maps.Map', {
+        strategy: 'poll',
         timeout: 200,
         retries: 10,
         pollInterval: 200,
@@ -77,7 +78,7 @@ test.describe('Core features — Next.js', () => {
         const { watchWindot } = (window as any).__ww;
         const dispose = watchWindot('acme.maps.Map', () => {
           notifiedAfterDispose = true;
-        });
+        }, { strategy: 'poll' });
 
         // Dispose immediately
         dispose();

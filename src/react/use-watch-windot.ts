@@ -1,6 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import type { WatchWindotOptions, WatcherState } from '../types.js';
-import { watchWindot } from '../index.js';
+import { watch } from '../core/windot-watcher.js';
+import type { DisposeFunction } from '../types.js';
+import { defaultReadyPredicate } from '../types.js';
+
+// A default import also works with React 16's CommonJS exports in native ESM.
+const { useState, useEffect, useRef } = React;
 
 /**
  * Result object returned by {@link useWatchWindot}.
@@ -30,9 +35,14 @@ export interface WatchWindotResult<T> {
  *
  * Subscribes to the given dot-notation path on `window` and returns an object
  * with `value`, `status`, and `error` fields. Status transitions through
- * `watching` → `ready` | `timeout` | `error` based on `ww:*` lifecycle events.
+ * `watching` → `ready` | `timeout` | `error`.
  *
- * Watchers are disposed on unmount or when the path changes.
+ * Readiness, timeout and error state come from this registration's private
+ * callbacks. Public correlation labels can repeat without sibling cross-talk.
+ * Changed option values resubscribe; predicates update and recheck in place,
+ * so inline predicates do not create a resubscription/render loop.
+ *
+ * Watchers are disposed on unmount or when the path/options change.
  * StrictMode-safe: the singleton ref-counting in the core engine handles
  * double-mount/unmount cycles correctly.
  *
@@ -65,52 +75,43 @@ export function useWatchWindot<T = unknown>(
   const [status, setStatus] = useState<WatcherState>('watching');
   const [error, setError] = useState<Error | null>(null);
   const optionsRef = useRef(options);
+  const refreshRef = useRef<(() => void) | undefined>(undefined);
   optionsRef.current = options;
+  const { timeout, pollInterval, strategy, signal, retries, ready, once, correlationId } = options ?? {};
 
   useEffect(() => {
+    let active = true;
+    let dispose: DisposeFunction | undefined;
     setValue(null);
     setStatus('watching');
     setError(null);
-
-    const onReady = (e: Event): void => {
-      const detail = (e as CustomEvent).detail as { path: string };
-      if (detail.path === path) {
+    if (typeof window === 'undefined') {return;}
+    try {
+      dispose = watch(path, val => {
+        if (!active) {return;}
+        setValue(() => val as T);
         setStatus('ready');
-      }
-    };
+        setError(null);
+      }, { ...optionsRef.current, ready: candidate => (optionsRef.current?.ready ?? defaultReadyPredicate)(candidate) }, {
+        refresh: sample => { refreshRef.current = sample; },
+        notReady: () => { if (active) { setValue(null); setStatus('watching'); setError(null); } },
+        abort: () => { if (active) { setValue(null); setStatus('idle'); setError(null); } },
+        timeout: () => { if (active) {setStatus('timeout');} },
+        error: failure => {
+          if (!active) {return;}
+          setValue(null);
+          setStatus('error');
+          setError(failure instanceof Error ? failure : new Error(String(failure)));
+        },
+      });
+    } catch (failure) {
+      setStatus('error');
+      setError(failure instanceof Error ? failure : new Error(String(failure)));
+    }
+    return () => { active = false; refreshRef.current = undefined; dispose?.(); };
+  }, [path, timeout, pollInterval, strategy, signal, retries, once, correlationId]);
 
-    const onTimeout = (e: Event): void => {
-      const detail = (e as CustomEvent).detail as { path: string };
-      if (detail.path === path) {
-        setStatus('timeout');
-      }
-    };
-
-    const onError = (e: Event): void => {
-      const detail = (e as CustomEvent).detail as { path: string; error?: Error };
-      if (detail.path === path) {
-        setStatus('error');
-        if (detail.error) {
-          setError(detail.error);
-        }
-      }
-    };
-
-    window.addEventListener('ww:ready', onReady);
-    window.addEventListener('ww:timeout', onTimeout);
-    window.addEventListener('ww:error', onError);
-
-    const dispose = watchWindot<T>(path, (val) => {
-      setValue(() => val);
-    }, optionsRef.current);
-
-    return () => {
-      dispose();
-      window.removeEventListener('ww:ready', onReady);
-      window.removeEventListener('ww:timeout', onTimeout);
-      window.removeEventListener('ww:error', onError);
-    };
-  }, [path]);
+  useEffect(() => { refreshRef.current?.(); }, [ready]);
 
   return { value, status, error };
 }

@@ -1,327 +1,172 @@
 import type { DisposeFunction, SubscriberCallback, WatchWindotOptions } from '../types.js';
-import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from '../types.js';
+import { DEFAULT_POLL_INTERVAL } from '../types.js';
 import { dispatchWatcherEvent } from './event-dispatcher.js';
 import { createProxyWrapper } from './proxy-wrapper.js';
+import type { ProxyWrapper } from './proxy-wrapper.js';
 import { installTrap } from './property-trap.js';
-import { resolvePath, startPolling } from './poll-fallback.js';
+import type { TrapDispose } from './property-trap.js';
 import { SubscriptionManager } from './subscription-manager.js';
+import type { Subscription, WatcherObservers } from './subscription-manager.js';
+import { validateOptions } from './options.js';
+import { resolvePath } from './resolve-path.js';
+import { runtimeState } from './runtime-state.js';
 
-/**
- * Internal state for a single root key (e.g., `"Stripe"`).
- *
- * Holds the SubscriptionManager, PropertyTrap dispose, and
- * any active poll fallbacks for sub-paths. Created lazily on
- * first subscription to a root key and torn down when the
- * last subscriber disposes.
- */
-interface RootWatcher {
-  /** Manages path → callback subscriptions for this root key. */
+type Strategy = 'proxy' | 'poll' | 'auto';
+interface SharedPoll {
+  members: Map<Subscription, number>;
+  timer: ReturnType<typeof setTimeout> | undefined;
+  interval: number;
+}
+export interface RootWatcher {
   subManager: SubscriptionManager;
+  wrapper: ProxyWrapper;
+  trapDispose: TrapDispose | undefined;
+  polls: Map<string, SharedPoll>;
+  disposers: Set<DisposeFunction>;
+  mode: 'poll' | 'interception';
+}
+const registry = runtimeState.registry;
+const WINDOW_BUILTINS = new Set<string>([
+  'window', 'self', 'top', 'parent', 'frames', 'globalThis',
+  'document', 'location', 'history', 'navigator', 'localStorage',
+  'sessionStorage', 'name', 'length', 'closed', 'origin', 'status',
+  'screen', 'frameElement', 'opener', 'customElements', 'crypto',
+]);
 
-  /** Disposes the `Object.defineProperty` trap on `window[rootKey]`. */
-  trapDispose: DisposeFunction;
 
-  /** Active poll fallbacks for sub-paths keyed by full path. */
-  subPathPolls: Map<string, DisposeFunction>;
+/** Refresh interception on an explicit watch registration after ownership loss. */
+function ensureTrap(rootKey: string, watcher: RootWatcher): void {
+  if (watcher.mode === 'poll' || watcher.trapDispose?.ownsProperty()) {return;}
+  watcher.trapDispose?.();
+  watcher.trapDispose = installTrap(rootKey, watcher.subManager, watcher.wrapper);
 }
 
-/**
- * Singleton registry: root key → RootWatcher.
- *
- * Multiple calls to `watch("Stripe.checkout", ...)` and
- * `watch("Stripe.elements", ...)` share one RootWatcher for `"Stripe"`.
- */
-const registry = new Map<string, RootWatcher>();
-
-/**
- * Microtask scheduler matching notification-queue.ts.
- * Used for next-tick resolve of already-existing values.
- */
-const schedule: (fn: () => void) => void =
-  typeof queueMicrotask === 'function'
-    ? queueMicrotask
-    : (fn) => Promise.resolve().then(fn);
-
-/**
- * Parse a dot-notation path into root key and optional sub-path.
- *
- * @param path - Full dot-notation path (e.g., `"Stripe.checkout.sessions"`).
- * @returns Tuple of `[rootKey, subPath | undefined]`.
- *
- * @example
- * ```ts
- * parsePath('Stripe');                  // ['Stripe', undefined]
- * parsePath('Stripe.checkout');         // ['Stripe', 'checkout']
- * parsePath('Stripe.checkout.sessions'); // ['Stripe', 'checkout.sessions']
- * ```
- */
-function parsePath(path: string): [rootKey: string, subPath: string | undefined] {
-  const dotIndex = path.indexOf('.');
-  if (dotIndex === -1) {
-    return [path, undefined];
-  }
-  return [path.slice(0, dotIndex), path.slice(dotIndex + 1)];
-}
-
-/**
- * Create a new RootWatcher for a root key.
- *
- * Instantiates a SubscriptionManager, ProxyWrapper, and PropertyTrap.
- * The PropertyTrap installs an `Object.defineProperty` setter/getter
- * on `window[rootKey]`.
- *
- * @param rootKey - Top-level property name (e.g., `"Stripe"`).
- * @param options - Polling interval and readiness predicate.
- * @returns The created RootWatcher.
- */
-function createRootWatcher(rootKey: string, options: WatchWindotOptions): RootWatcher {
-  const subManager = new SubscriptionManager();
-  const proxyWrapper = createProxyWrapper(subManager);
-  const pollInterval = options.pollInterval ?? DEFAULT_POLL_INTERVAL;
-  const predicate = options.ready ?? defaultReadyPredicate;
-
-  const trapDispose = installTrap(rootKey, subManager, proxyWrapper, {
-    pollInterval,
-    readyPredicate: predicate,
-  });
-
-  return {
-    subManager,
-    trapDispose,
-    subPathPolls: new Map(),
+/** Reconcile the fastest positive interval among live polling members. */
+function reconcilePoll(path: string, watcher: RootWatcher, poll: SharedPoll): void {
+  let interval = Infinity;
+  for (const memberInterval of poll.members.values()) {interval = Math.min(interval, memberInterval);}
+  if (interval === poll.interval && poll.timer !== undefined) {return;}
+  if (poll.timer !== undefined) {clearTimeout(poll.timer);}
+  poll.timer = undefined;
+  poll.interval = interval;
+  if (poll.members.size === 0) { watcher.polls.delete(path); return; }
+  const check = (): void => {
+    poll.timer = undefined;
+    watcher.subManager.sample(path, poll.members.keys());
+    // An error/ready observer may synchronously dispose or change membership.
+    if (poll.members.size > 0 && poll.timer === undefined) {poll.timer = setTimeout(check, poll.interval);}
   };
+  poll.timer = setTimeout(check, interval);
 }
 
 /**
- * Tear down a RootWatcher and remove it from the registry.
- *
- * Disposes the PropertyTrap, stops all active sub-path polls,
- * and deletes the registry entry.
- *
- * @param rootKey - The root key to tear down.
- * @param watcher - The RootWatcher to dispose.
+ * Watch a path with isolated readiness and lifetime.
+ * Enabled auto/poll snapshot checks continue until disposal; proxy-only
+ * subscribers rely on interception. Auto+proxy can share a root, whereas
+ * poll+interception conflict before resource allocation.
+ * @param path - Dot path on window.
+ * @param callback - Asynchronous ready callback.
+ * @param options - Strategy, intervals, timeout, predicate and cancellation.
+ * @param observers - Private lifecycle observers for hooks/promise adapters.
+ * @returns Idempotent cleanup function.
+ * @example const dispose = watch('SDK.api', callback, { once: true });
  */
-function teardownRootWatcher(rootKey: string, watcher: RootWatcher): void {
-  watcher.trapDispose();
-  for (const pollDispose of watcher.subPathPolls.values()) {
-    pollDispose();
-  }
-  watcher.subPathPolls.clear();
-  registry.delete(rootKey);
-}
-
-/**
- * Watch a dot-notation path on `window` for a value to appear.
- *
- * This is the main orchestration function. It:
- * 1. Parses the path into root key and sub-path.
- * 2. Gets or creates a singleton RootWatcher for the root key.
- * 3. Subscribes the callback for the full path.
- * 4. If the value already exists, schedules a next-tick notification.
- * 5. Optionally starts a timeout timer and retry loop.
- * 6. Optionally wires an AbortSignal to the dispose function.
- * 7. Returns a dispose function that cleans up this subscription
- *    and tears down the RootWatcher when the last subscriber leaves.
- *
- * @param path - Dot-notation path on `window` (e.g., `"Stripe.checkout"`).
- * @param callback - Invoked with the value when the path is ready.
- * @param options - Configuration for timeout, polling, readiness, signal, etc.
- * @returns Dispose function to remove this subscription.
- *
- * @example
- * ```ts
- * const dispose = watch('Stripe.checkout', (checkout) => {
- *   console.log('Stripe Checkout ready:', checkout);
- * });
- *
- * // Later:
- * dispose();
- * ```
- */
-export function watch(
-  path: string,
-  callback: SubscriberCallback,
-  options: WatchWindotOptions = {},
-): DisposeFunction {
-  const [rootKey, subPath] = parsePath(path);
-  const predicate = options.ready ?? defaultReadyPredicate;
-  const pollInterval = options.pollInterval ?? DEFAULT_POLL_INTERVAL;
-  const hasTimeout = options.timeout !== undefined && options.timeout > 0;
-
-  // Get or create singleton RootWatcher
+export function watch(path: string, callback: SubscriberCallback, options: WatchWindotOptions = {}, observers: WatcherObservers = {}): DisposeFunction {
+  validateOptions(options);
+  if (options.signal?.aborted) { observers.abort?.(); return () => {}; }
+  const rootKey = path.split('.')[0]!;
+  const reserved = WINDOW_BUILTINS.has(rootKey);
+  const strategy: Strategy = reserved ? 'poll' : options.strategy ?? 'auto';
+  const mode = strategy === 'poll' ? 'poll' : 'interception';
   let watcher = registry.get(rootKey);
+  if (watcher && watcher.mode !== mode) {throw new Error(`windotwatchr: strategy conflict on "${rootKey}": poll cannot share interception`);}
   if (!watcher) {
-    watcher = createRootWatcher(rootKey, options);
+    const subManager = new SubscriptionManager();
+    watcher = { subManager, wrapper: createProxyWrapper(subManager, watchedPath => resolvePath(window, watchedPath)), trapDispose: undefined, polls: new Map(), disposers: new Set(), mode };
     registry.set(rootKey, watcher);
   }
-
-  // Timeout/retry state — declared before subscription so the
-  // wrapped callback can close over them.
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let retryId: ReturnType<typeof setTimeout> | null = null;
+  const owner = watcher;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let retryId: ReturnType<typeof setTimeout> | undefined;
   let resolved = false;
-
-  // Wrap callback to detect resolution and clear timeout/retry timers.
-  // When there's no timeout, use the raw callback to avoid overhead.
-  const effectiveCallback: SubscriberCallback = hasTimeout
-    ? (value) => {
-        resolved = true;
-        if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
-        if (retryId) { clearTimeout(retryId); retryId = null; }
-        callback(value);
-      }
-    : callback;
-
-  // Subscribe callback for the full path
-  const unsubscribe = watcher.subManager.subscribe(path, effectiveCallback);
-
-  // Check if the value already exists (late mount scenario).
-  // Always resolve on next microtask to avoid Zalgo.
-  const currentRoot = (window as unknown as Record<string, unknown>)[rootKey];
-  if (currentRoot !== undefined) {
-    if (!subPath) {
-      // Root-level watch — value already exists
-      if (predicate(currentRoot)) {
-        schedule(() => {
-          dispatchWatcherEvent('ww:ready', { path, value: currentRoot });
-          effectiveCallback(currentRoot);
-        });
-      }
-    } else {
-      // Sub-path watch — resolve the full path
-      const currentValue = resolvePath(
-        { [rootKey]: currentRoot } as object,
-        path,
-      );
-      if (predicate(currentValue)) {
-        schedule(() => {
-          dispatchWatcherEvent('ww:ready', { path, value: currentValue });
-          effectiveCallback(currentValue);
-        });
-      } else if (pollInterval > 0 && !watcher.subPathPolls.has(path)) {
-        // Value not ready yet — start polling for this sub-path.
-        // The Proxy set trap will also catch it if it's assigned later,
-        // but polling covers frozen nested objects.
-        const pollDispose = startPolling(path, watcher.subManager, {
-          interval: pollInterval,
-          readyPredicate: predicate,
-        });
-        watcher.subPathPolls.set(path, pollDispose);
-      }
-    }
-  }
-
-  // --- Timeout + Retry ---
-  if (hasTimeout) {
-    const timeout = options.timeout!;
-    const retries = options.retries ?? 0;
-    let attempts = 0;
-
-    const onTimeout = (): void => {
-      if (resolved) {
-        return;
-      }
-
-      dispatchWatcherEvent('ww:timeout', { path, attempts, elapsed: timeout });
-
-      if (attempts < retries) {
-        const retryInterval = pollInterval > 0 ? pollInterval : DEFAULT_POLL_INTERVAL;
-
-        const retryCheck = (): void => {
-          if (resolved) {
-            return;
-          }
-          attempts++;
-
-          const value = resolvePath(window, path);
-          if (predicate(value)) {
-            schedule(() => {
-              dispatchWatcherEvent('ww:ready', { path, value });
-              effectiveCallback(value);
-            });
-            return;
-          }
-
-          dispatchWatcherEvent('ww:timeout', { path, attempts, elapsed: timeout });
-
-          if (attempts < retries) {
-            retryId = setTimeout(retryCheck, retryInterval);
-          }
-        };
-
-        retryId = setTimeout(retryCheck, retryInterval);
-      }
-    };
-
-    timeoutId = setTimeout(onTimeout, timeout);
-  }
-
-  // --- Dispose ---
   let disposed = false;
-
-  const dispose: DisposeFunction = () => {
-    if (disposed) {
-      return;
-    }
+  let sub: Subscription | undefined;
+  let poll: SharedPoll | undefined;
+  const clearDeadline = (): void => {
+    if (timeoutId !== undefined) {clearTimeout(timeoutId);}
+    if (retryId !== undefined) {clearTimeout(retryId);}
+    timeoutId = retryId = undefined;
+  };
+  const dispose = (): void => {
+    if (disposed) {return;}
     disposed = true;
-
-    // Clear timeout/retry timers
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-    if (retryId) {
-      clearTimeout(retryId);
-      retryId = null;
-    }
-
-    unsubscribe();
-
-    // Stop sub-path poll if this was the trigger
-    const pollDispose = watcher!.subPathPolls.get(path);
-    if (pollDispose) {
-      pollDispose();
-      watcher!.subPathPolls.delete(path);
-    }
-
-    // Tear down RootWatcher if no subscribers remain
-    if (watcher!.subManager.getSubscriberCount() === 0) {
-      teardownRootWatcher(rootKey, watcher!);
-    }
-
-    // Clean up abort listener
-    if (options.signal) {
-      options.signal.removeEventListener('abort', dispose);
+    clearDeadline();
+    sub?.dispose();
+    if (poll && sub) { poll.members.delete(sub); reconcilePoll(path, owner, poll); }
+    owner.disposers.delete(dispose);
+    options.signal?.removeEventListener('abort', onAbort);
+    // Pending registrations own the root too: a lifecycle event can dispose
+    // the previous subscriber while another registration is installing a trap.
+    if (owner.disposers.size === 0) {
+      owner.trapDispose?.();
+      if (registry.get(rootKey) === owner) {registry.delete(rootKey);}
     }
   };
-
-  // --- AbortSignal ---
-  if (options.signal) {
-    if (options.signal.aborted) {
-      dispose();
-      return dispose;
+  const onAbort = (): void => { dispose(); observers.abort?.(); };
+  owner.disposers.add(dispose);
+  try {
+    if (reserved) {dispatchWatcherEvent('ww:warning', { path: rootKey, reason: 'reserved' });}
+    ensureTrap(rootKey, owner);
+    sub = owner.subManager.subscribe(path, value => {
+      resolved = true;
+      clearDeadline();
+      try { callback(value); }
+      finally { if (options.once) {dispose();} }
+    }, { ...(options.ready ? { predicate: options.ready } : {}), ...(options.correlationId !== undefined ? { id: options.correlationId } : {}), observers });
+    owner.subManager.sample(path, [sub]);
+    observers.refresh?.(() => { if (!disposed) {owner.subManager.sample(path, [sub!]);} });
+    const interval = options.pollInterval ?? DEFAULT_POLL_INTERVAL;
+    if (strategy !== 'proxy' && interval > 0 && !disposed) {
+      poll = owner.polls.get(path);
+      if (!poll) { poll = { members: new Map(), timer: undefined, interval: Infinity }; owner.polls.set(path, poll); }
+      poll.members.set(sub, Math.ceil(interval));
+      reconcilePoll(path, owner, poll);
     }
-    options.signal.addEventListener('abort', dispose, { once: true });
-  }
-
-  return dispose;
+    const timeout = options.timeout ?? 0;
+    if (timeout > 0) {
+      const retries = options.retries ?? 0;
+      let attempts = 0;
+      const reportTimeout = (): void => {
+        if (resolved || disposed) {return;}
+        const detail = { path, attempts, elapsed: timeout, id: sub!.id };
+        dispatchWatcherEvent('ww:timeout', detail);
+        if (disposed || resolved) {return;}
+        observers.timeout?.(detail);
+        if (disposed || resolved || attempts >= retries) {return;}
+        retryId = setTimeout(() => {
+          retryId = undefined;
+          if (disposed || resolved) {return;}
+          attempts++;
+          owner.subManager.sample(path, [sub!]);
+          // Delivery runs before the next retry; polling only reports snapshots.
+          void Promise.resolve().then(reportTimeout);
+        }, interval > 0 ? Math.ceil(interval) : DEFAULT_POLL_INTERVAL);
+      };
+      timeoutId = setTimeout(() => { timeoutId = undefined; reportTimeout(); }, Math.ceil(timeout));
+    }
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) {onAbort();}
+    return dispose;
+  } catch (error) { dispose(); throw error; }
 }
 
 /**
- * Reset the windot watcher registry.
- *
- * Tears down all active RootWatchers and clears the registry.
- * Intended for testing only — not exported from the public API.
- *
- * @example
- * ```ts
- * // In test teardown:
- * resetRegistry();
- * ```
+ * Release all test registrations, including callbacks' timers/abort listeners.
+ * @example afterEach(() => resetRegistry());
  */
 export function resetRegistry(): void {
-  for (const [rootKey, watcher] of registry) {
-    teardownRootWatcher(rootKey, watcher);
+  for (const watcher of Array.from(registry.values())) {
+    for (const dispose of Array.from(watcher.disposers)) {dispose();}
   }
   registry.clear();
 }

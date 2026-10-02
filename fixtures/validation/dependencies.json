@@ -1,0 +1,257 @@
+{
+  "checkedAt": "2026-10-02T18:21:35.607Z",
+  "bun": "1.4.2",
+  "packages": [
+    {
+      "manifest": "package.json",
+      "dependencies": [
+        {
+          "name": "@changesets/changelog-github",
+          "range": "^1.0.1",
+          "installed": "1.0.1",
+          "latest": "1.0.1",
+          "current": true
+        },
+        {
+          "name": "@changesets/cli",
+          "range": "^3.0.3",
+          "installed": "3.0.3",
+          "latest": "3.0.3",
+          "current": true
+        },
+        {
+          "name": "@testing-library/dom",
+          "range": "^10.4.2",
+          "installed": "10.4.2",
+          "latest": "10.4.2",
+          "current": true
+        },
+        {
+          "name": "@testing-library/react",
+          "range": "^16.3.3",
+          "installed": "16.3.3",
+          "latest": "16.3.3",
+          "current": true
+        },
+        {
+          "name": "@types/bun",
+          "range": "^1.4.2",
+          "installed": "1.4.2",
+          "latest": "1.4.2",
+          "current": true
+        },
+        {
+          "name": "@types/react",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "@types/react-dom",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "@vitest/browser-playwright",
+          "range": "5.0.3",
+          "installed": "5.0.3",
+          "latest": "5.0.3",
+          "current": true
+        },
+        {
+          "name": "husky",
+          "range": "^9.1.7",
+          "installed": "9.1.7",
+          "latest": "9.1.7",
+          "current": true
+        },
+        {
+          "name": "lint-staged",
+          "range": "^17.6.0",
+          "installed": "17.6.0",
+          "latest": "17.6.0",
+          "current": true
+        },
+        {
+          "name": "oxlint",
+          "range": "^1.86.0",
+          "installed": "1.86.0",
+          "latest": "1.86.0",
+          "current": true
+        },
+        {
+          "name": "playwright",
+          "range": "1.63.0",
+          "installed": "1.63.0",
+          "latest": "1.63.0",
+          "current": true
+        },
+        {
+          "name": "react",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "react-dom",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "typescript",
+          "range": "^7.0.2",
+          "installed": "7.0.2",
+          "latest": "7.0.2",
+          "current": true
+        },
+        {
+          "name": "vite",
+          "range": "^8.3.2",
+          "installed": "8.3.2",
+          "latest": "8.3.2",
+          "current": true
+        },
+        {
+          "name": "vitest",
+          "range": "^5.0.3",
+          "installed": "5.0.3",
+          "latest": "5.0.3",
+          "current": true
+        }
+      ]
+    },
+    {
+      "manifest": "e2e/package.json",
+      "dependencies": [
+        {
+          "name": "@playwright/test",
+          "range": "^1.63.0",
+          "installed": "1.63.0",
+          "latest": "1.63.0",
+          "current": true
+        }
+      ]
+    },
+    {
+      "manifest": "examples/nextjs/package.json",
+      "dependencies": [
+        {
+          "name": "next",
+          "range": "^16.3.8",
+          "installed": "16.3.8",
+          "latest": "16.3.8",
+          "current": true
+        },
+        {
+          "name": "react",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "react-dom",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "sugar-high",
+          "range": "^2.5.1",
+          "installed": "2.5.1",
+          "latest": "2.5.1",
+          "current": true
+        },
+        {
+          "name": "@types/react",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "@types/react-dom",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "typescript",
+          "range": "^7.0.2",
+          "installed": "7.0.2",
+          "latest": "7.0.2",
+          "current": true
+        }
+      ]
+    },
+    {
+      "manifest": "examples/vite-react/package.json",
+      "dependencies": [
+        {
+          "name": "react",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "react-dom",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "sugar-high",
+          "range": "^2.5.1",
+          "installed": "2.5.1",
+          "latest": "2.5.1",
+          "current": true
+        },
+        {
+          "name": "@types/react",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "@types/react-dom",
+          "range": "^19.3.0",
+          "installed": "19.3.0",
+          "latest": "19.3.0",
+          "current": true
+        },
+        {
+          "name": "@vitejs/plugin-react",
+          "range": "^6.1.1",
+          "installed": "6.1.1",
+          "latest": "6.1.1",
+          "current": true
+        },
+        {
+          "name": "typescript",
+          "range": "^7.0.2",
+          "installed": "7.0.2",
+          "latest": "7.0.2",
+          "current": true
+        },
+        {
+          "name": "vite",
+          "range": "^8.3.2",
+          "installed": "8.3.2",
+          "latest": "8.3.2",
+          "current": true
+        }
+      ]
+    }
+  ]
+}

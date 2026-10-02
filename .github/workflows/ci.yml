@@ -4,14 +4,23 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
-          node-version: '22'
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun --bun run playwright install --with-deps chromium firefox webkit
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run docs:check
+      - run: bun run test:all
+      - run: bun run build
+      - run: bun run test:consumers -- --all-browsers
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '18.0.0'
+      - run: bun run test:consumers:minimum -- --all-browsers
+        env:
+          WINDOT_SERVER_RUNTIME: node
+      - run: bun run build:examples
+      - run: bun run test:e2e -- --reporter=line --workers=2
