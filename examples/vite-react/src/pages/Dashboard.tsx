@@ -93,15 +93,7 @@ export function Dashboard() {
         property mutations, deep nesting, and incremental namespace building. The script tags that
         inject each SDK are loaded separately in the page layout and are not shown in the snippet.
       </p>
-      <CodeSnippet code={DASHBOARD_CODE} />
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '1rem',
-          marginTop: '1rem',
-        }}
-      >
+      <div className="sdk-dashboard">
         <SDKCard
           name="analytics"
           path="acmeDataLayer"
@@ -132,6 +124,7 @@ export function Dashboard() {
           options={{ strategy: 'poll' }}
         />
       </div>
+      <details><summary>Show the shared hook code</summary><CodeSnippet code={DASHBOARD_CODE} /></details>
     </main>
   );
 }
@@ -186,7 +179,7 @@ function SDKCard({
       }}
     >
       <h3 style={{ margin: '0 0 0.5rem', color: '#cdd6f4' }}>{name}</h3>
-      <p style={{ color: '#6c7086', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 0.75rem' }}>
+      <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 0.75rem' }}>
         {description}
       </p>
       <p style={{ color: '#a6adc8', margin: '0.25rem 0' }}>

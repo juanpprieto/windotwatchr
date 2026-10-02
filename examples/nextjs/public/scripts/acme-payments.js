@@ -44,7 +44,7 @@
               el.setAttribute('data-acme-type', type);
               el.setAttribute('data-acme-amount', String(this.amount || ''));
               el.setAttribute('data-acme-rendered', 'true');
-              el.textContent = 'Acme ' + type + ' — $' + (this.amount || 0);
+              el.textContent = 'Acme ' + type + ' — $' + ((this.amount || 0) / 100).toFixed(2);
             }
             return this;
           },

@@ -7,7 +7,7 @@ const examples = [
   { prefix: '/windotwatchr/vite-react/', directory: 'examples/vite-react/dist', spa: true },
 ];
 const server = Bun.serve({
-  port: 4173, hostname: '127.0.0.1',
+  port: Number(process.env.WINDOT_EXAMPLE_PORT ?? 4173), hostname: '127.0.0.1',
   async fetch(request) {
     const path = decodeURIComponent(new URL(request.url).pathname);
     const example = examples.find(candidate => path.startsWith(candidate.prefix));

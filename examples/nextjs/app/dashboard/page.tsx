@@ -79,12 +79,11 @@ export default function DashboardPage() {
         property mutations, deep nesting, and incremental namespace building. The script tags that
         inject each SDK are loaded separately in the page layout and are not shown in the snippet.
       </p>
-      <CodeSnippet code={DASHBOARD_CODE} />
       <Script src={`${BASE}/scripts/acme-analytics.js`} strategy="afterInteractive" />
       <Script src={`${BASE}/scripts/acme-payments.js`} strategy="afterInteractive" />
       <Script src={`${BASE}/scripts/acme-pixel.js`} strategy="afterInteractive" />
       <Script src={`${BASE}/scripts/acme-maps.js`} strategy="afterInteractive" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+      <div className="sdk-dashboard">
         <SDKCard
           name="analytics"
           path="acmeDataLayer"
@@ -115,6 +114,7 @@ export default function DashboardPage() {
           options={{ strategy: 'poll' }}
         />
       </div>
+      <details><summary>Show the shared hook code</summary><CodeSnippet code={DASHBOARD_CODE} /></details>
     </main>
   );
 }
@@ -169,7 +169,7 @@ function SDKCard({
       }}
     >
       <h3 style={{ margin: '0 0 0.5rem', color: '#cdd6f4' }}>{name}</h3>
-      <p style={{ color: '#6c7086', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 0.75rem' }}>
+      <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 0.75rem' }}>
         {description}
       </p>
       <p style={{ color: '#a6adc8', margin: '0.25rem 0' }}>

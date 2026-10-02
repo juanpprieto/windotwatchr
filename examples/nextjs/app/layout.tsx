@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '../../shared/readiness-demo.css';
 
 export const metadata: Metadata = {
   title: 'windotwatchr — Next.js Showcase',

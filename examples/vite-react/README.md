@@ -19,10 +19,16 @@ Routes below are relative to the configured base path, `/windotwatchr/vite-react
 | Route | What it shows |
 |-------|---------------|
 | `#/` | Navigation hub |
-| `#/payments` | Side-by-side: setTimeout polling vs. a single `useWatchWindot` call detecting `acmePayments.ui.components` (3 levels deep) |
+| `#/payments` | Step through script loading, API exposure, initialization, cancellation and replay; then compare working polling/hook integrations |
 | `#/dashboard` | Four SDK cards, each a different loading pattern — sync global, property mutation, deep nesting, incremental namespace — all handled by one hook |
 
 ## Files to Read
+
+The guided demo is shared with Next.js in [`../shared/ReadinessDemo.tsx`](../shared/ReadinessDemo.tsx). It loads a real local Blob script, then lets you expose and initialize its API manually. Default `auto` with 100ms snapshots checks the API’s internal initialization flag; readiness is defined by a pure predicate, not the script load event.
+
+For manual UAT: load the script and confirm zero callbacks; expose the API and confirm it still waits; initialize and expect one callback plus a $49.99 promo. Replay to reset everything. Repeat with Cancel before initialization: the SDK initializes but callback count stays zero. Navigate away while waiting, return, and verify a fresh run. Check the mobile layout with code expanded.
+
+For production UAT from the root, run `bun run build:examples`, then `bun scripts/serve-examples.ts`; open `http://127.0.0.1:4173/windotwatchr/vite-react/`. Automated tests start their own server. If the manual server is running, use `WINDOT_EXAMPLE_PORT=4174 bun run test:e2e -- --workers=2 --reporter=line`.
 
 | File | Why |
 |------|-----|

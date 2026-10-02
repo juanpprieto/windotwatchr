@@ -3,6 +3,7 @@ import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, 
 
 test.describe('Payments page — Next.js', () => {
   test.beforeEach(async ({ page }) => {
+    await collectWatcherEvents(page, 'ww:ready');
     await page.goto('payments');
   });
 
@@ -42,9 +43,6 @@ test.describe('Payments page — Next.js', () => {
   });
 
   test('ww:ready event fires for deep path', async ({ page }) => {
-    // Set up listener before scripts fully execute
-    await collectWatcherEvents(page, 'ww:ready');
-
     // Wait for detection
     await expectStatus(page, 'new-way', 'ready', 10_000);
 

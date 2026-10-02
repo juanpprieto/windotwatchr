@@ -15,6 +15,7 @@
     "unicorn/no-null": "off",
     "no-duplicate-imports": "off",
     "no-underscore-dangle": "off",
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
     "vitest/require-mock-type-parameters": "off",
     "promise/avoid-new": "off",
     "promise/prefer-await-to-callbacks": "off"

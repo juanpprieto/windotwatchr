@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const origin = `http://127.0.0.1:${process.env.WINDOT_EXAMPLE_PORT ?? '4173'}`;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -13,7 +15,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'bun scripts/serve-examples.ts',
-    url: 'http://127.0.0.1:4173/windotwatchr/nextjs/',
+    url: `${origin}/windotwatchr/nextjs/`,
     reuseExistingServer: false,
     cwd: '..',
     timeout: 30_000,
@@ -22,12 +24,12 @@ export default defineConfig({
     {
       name: 'nextjs',
       testDir: './tests/nextjs',
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:4173/windotwatchr/nextjs/' },
+      use: { ...devices['Desktop Chrome'], baseURL: `${origin}/windotwatchr/nextjs/` },
     },
     {
       name: 'vite-react',
       testDir: './tests/vite-react',
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:4173/windotwatchr/vite-react/' },
+      use: { ...devices['Desktop Chrome'], baseURL: `${origin}/windotwatchr/vite-react/` },
     },
   ],
 });
