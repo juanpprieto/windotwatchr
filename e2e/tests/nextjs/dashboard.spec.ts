@@ -3,7 +3,6 @@ import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, 
 
 test.describe('Dashboard page — Next.js', () => {
   test.beforeEach(async ({ page }) => {
-    await collectWatcherEvents(page, 'ww:ready');
     await page.goto('dashboard');
   });
 
@@ -91,6 +90,8 @@ test.describe('Dashboard page — Next.js', () => {
   });
 
   test('ww:ready events fire for all 4 SDKs', async ({ page }) => {
+    await collectWatcherEvents(page, 'ww:ready');
+
     // Wait for all to be ready
     await expectStatus(page, 'sdk-analytics', 'ready', 5_000);
     await expectStatus(page, 'sdk-pixel', 'ready', 5_000);

@@ -19,16 +19,10 @@ Routes below are relative to the configured base path, `/windotwatchr/nextjs/`.
 | Route | What it shows |
 |-------|---------------|
 | `/` | Navigation hub |
-| `/payments` | Step through script loading, API exposure, initialization, cancellation and replay; then compare working polling/hook integrations |
+| `/payments` | Side-by-side: setTimeout polling vs. a single `useWatchWindot` call detecting `acmePayments.ui.components` (3 levels deep) |
 | `/dashboard` | Four SDK cards, each a different loading pattern — sync global, property mutation, deep nesting, incremental namespace — all handled by one hook |
 
 ## Files to Read
-
-The guided demo is shared with Vite in [`../shared/ReadinessDemo.tsx`](../shared/ReadinessDemo.tsx). Its watcher registers after hydration, without reading `window` during rendering. A real local Blob script loads first; API exposure and initialization are separate actions. Default `auto` with 100ms snapshots rechecks the internal flag through a pure readiness predicate.
-
-For manual UAT: load the script and confirm zero callbacks; expose the API and confirm it still waits; initialize and expect one callback plus a $49.99 promo. Replay to reset everything. Repeat with Cancel before initialization: the SDK initializes but callback count stays zero. Navigate away while waiting, return, and verify a fresh run. Check the mobile layout with code expanded.
-
-For production UAT from the root, run `bun run build:examples`, then `bun scripts/serve-examples.ts`; open `http://127.0.0.1:4173/windotwatchr/nextjs/`. Automated tests start their own server. If the manual server is running, use `WINDOT_EXAMPLE_PORT=4174 bun run test:e2e -- --workers=2 --reporter=line`.
 
 | File | Why |
 |------|-----|

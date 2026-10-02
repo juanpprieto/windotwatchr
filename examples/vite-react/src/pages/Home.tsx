@@ -12,7 +12,7 @@ export function Home() {
             <a href="#/payments" style={{ color: '#89b4fa', textDecoration: 'none' }}>
               Payments
             </a>
-            <span style={{ color: '#a6adc8' }}> — Step through script loading, API exposure and readiness</span>
+            <span style={{ color: '#6c7086' }}> — Affirm-like BNPL promo (before/after)</span>
           </li>
           <li>
             <a href="#/dashboard" style={{ color: '#89b4fa', textDecoration: 'none' }}>

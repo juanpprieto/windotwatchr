@@ -70,14 +70,14 @@ export async function waitForWatcherEvent(
 }
 
 /**
- * Install a ww:* event listener before the next navigation and SDK execution.
- * Call before page.goto() so synchronous SDK readiness cannot be missed.
+ * Inject a ww:* event listener BEFORE scripts load, collecting all events.
+ * Call this right after page.goto() to capture events from the start.
  */
 export async function collectWatcherEvents(
   page: Page,
   eventName: string,
 ): Promise<void> {
-  await page.addInitScript((name) => {
+  await page.evaluate((name) => {
     (window as unknown as Record<string, unknown[]>)[`__e2e_${name}`] = [];
     window.addEventListener(name, (e: Event) => {
       const detail = (e as CustomEvent).detail;

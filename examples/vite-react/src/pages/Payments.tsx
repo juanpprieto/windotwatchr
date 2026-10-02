@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { highlight } from 'sugar-high';
 import { useWatchWindot } from 'windotwatchr/react';
-import { ReadinessDemo } from '../../../shared/ReadinessDemo';
 
 /**
  * Shape of a rendered Acme promo component returned by `components.create()`.
@@ -33,32 +32,25 @@ interface AcmeComponents {
 
 const OLD_WAY_CODE = `function BNPLPromo({ amount }) {
   const [ready, setReady] = useState(false);
+  const ref = useRef(null);
 
   useEffect(() => {
-    let timer;
-    let cancelled = false;
-    let component;
     const check = () => {
-      if (cancelled) return;
       if (window?.acmePayments?.ui?.components) {
         setReady(true);
-        component = acmePayments.ui.components
+        ref.current = acmePayments.ui.components
           .create('promo', { amount, pageType: 'product' });
-        component.render('#container');
+        ref.current.render('#container');
       } else {
-        timer = setTimeout(check, 100);
+        setTimeout(check, 100); // poll forever
       }
     };
     check();
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      component?.destroy();
-    };
+    return () => { ref.current = null; };
   }, [amount]);
 
-  return <><p>{ready ? 'Ready' : 'Loading...'}</p>
-    <div id="container" /></>;
+  if (!ready) return <p>Loading...</p>;
+  return <div id="container" />;
 }`;
 
 const NEW_WAY_CODE = `function BNPLPromo({ amount }) {
@@ -66,10 +58,11 @@ const NEW_WAY_CODE = `function BNPLPromo({ amount }) {
     useWatchWindot('acmePayments.ui.components');
 
   useEffect(() => {
-    if (!components) return;
-    const component = components.create('promo', { amount, pageType: 'product' });
-    component.render('#container');
-    return () => component.destroy();
+    if (components) {
+      components
+        .create('promo', { amount, pageType: 'product' })
+        .render('#container');
+    }
   }, [components, amount]);
 
   return (
@@ -114,6 +107,8 @@ function CodeSnippet({ code }: { code: string }) {
   );
 }
 
+const SCRIPT_LOADED_ATTR = 'data-ww-loaded';
+
 function useScript(src: string) {
   useEffect(() => {
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
@@ -121,7 +116,12 @@ function useScript(src: string) {
     const script = document.createElement('script');
     script.src = src;
     script.async = true;
+    const markLoaded = () => {
+      script.setAttribute(SCRIPT_LOADED_ATTR, 'true');
+    };
+    script.addEventListener('load', markLoaded, { once: true });
     document.head.appendChild(script);
+    return () => script.removeEventListener('load', markLoaded);
   }, [src]);
 }
 
@@ -130,10 +130,8 @@ export function Payments() {
 
   return (
     <main>
-      <h1 style={{ color: '#cba6f7' }}>Payments — Readiness Demo</h1>
+      <h1 style={{ color: '#cba6f7' }}>Payments — Before/After Demo</h1>
       <a href="#" style={{ color: '#89b4fa', textDecoration: 'none' }}>&larr; Home</a>
-      <ReadinessDemo />
-      <h2 style={{ color: '#cdd6f4' }}>Compare two working integrations</h2>
       <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.5rem 0 1rem', maxWidth: '72ch' }}>
         Side-by-side comparison of detecting a deeply nested payment SDK
         (<code style={{ color: '#b4befe' }}>acmePayments.ui.components</code>, 3 levels deep).
@@ -142,24 +140,35 @@ export function Payments() {
         live promo widget when the SDK is ready. The third-party script tag is loaded separately
         in the page layout and is not shown in the code snippets below.
       </p>
-      <div className="payment-comparison">
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '2rem',
+          marginTop: '1rem',
+        }}
+      >
         <div>
-          <h3 style={{ color: '#cdd6f4' }}>Hand-written polling</h3>
+          <h2 style={{ color: '#f38ba8' }}>Without windotwatchr</h2>
           <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.5rem 0 1rem' }}>
-            A cancellable setTimeout loop checks this API every 100ms. This is a valid integration;
-            you own the checking, scheduling and cleanup. A script load event alone does not establish readiness.
+            You've probably written this before. A setTimeout loop checking if the SDK exists every
+            100ms, racing against a script.onload that fires before the API is actually initialized.
+            It works eventually, but it's wasteful and timing-dependent.
           </p>
+          <CodeSnippet code={OLD_WAY_CODE} />
+          <h3 style={{ color: '#a6adc8', fontSize: '0.9rem', fontWeight: 400 }}>Live demo</h3>
           <OldWayPromo amount={4999} />
-          <details><summary>Show polling code</summary><CodeSnippet code={OLD_WAY_CODE} /></details>
         </div>
         <div>
-          <h3 style={{ color: '#cdd6f4' }}>windotwatchr</h3>
+          <h2 style={{ color: '#a6e3a1' }}>With windotwatchr</h2>
           <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.5rem 0 1rem' }}>
-            One hook manages detection and unmount cleanup. Default auto combines assignment
-            interception with snapshot polling. Both integrations render the same result.
+            windotwatchr installs a lightweight Proxy trap on the window property path. The moment
+            the SDK assigns its API, your callback fires immediately. No polling loops, no race
+            conditions, no wasted CPU cycles.
           </p>
+          <CodeSnippet code={NEW_WAY_CODE} />
+          <h3 style={{ color: '#a6adc8', fontSize: '0.9rem', fontWeight: 400 }}>Live demo</h3>
           <NewWayPromo amount={4999} />
-          <details><summary>Show hook code</summary><CodeSnippet code={NEW_WAY_CODE} /></details>
         </div>
       </div>
     </main>
@@ -169,46 +178,76 @@ export function Payments() {
 /**
  * Traditional approach to detecting a third-party SDK.
  *
- * Poll the API every 100ms, owning cancellation and component cleanup.
- * The guided demo above illustrates script loading separately from usability.
+ * Demonstrates **two common failure modes** in real-world integrations:
+ *
+ * 1. **script.onload race condition** — The script tag fires its `load`
+ *    event when the file finishes downloading, but the SDK's IIFE hasn't
+ *    finished its async initialization yet. Calling the API immediately
+ *    in `onload` throws because `ui.components` doesn't exist.
+ *
+ * 2. **setTimeout polling** — The fallback: poll `window.acmePayments.ui.components`
+ *    every 100ms until it appears. Wasteful, timing-dependent, and produces
+ *    unpredictable detection latency (up to one full poll interval late).
  *
  * @param props.amount - Dollar amount in cents to display in the promo widget.
  */
 function OldWayPromo({ amount }: { amount: number }) {
   const [ready, setReady] = useState(false);
   const [detectedAt, setDetectedAt] = useState<number | null>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const script = document.querySelector<HTMLScriptElement>(
+      `script[src="${import.meta.env.BASE_URL}scripts/acme-payments.js"]`,
+    );
+    if (!script) { return; }
+    const onLoad = () => {
+      setScriptLoaded(true);
+      const w = window as unknown as Record<string, unknown>;
+      try {
+        const ap = w.acmePayments as { ui?: { components?: AcmeComponents } } | undefined;
+        ap!.ui!.components!.create('promo', { amount, pageType: 'product' });
+      } catch {
+        setApiError('acmePayments.ui is undefined');
+      }
+    };
+
+    if (script.getAttribute(SCRIPT_LOADED_ATTR) === 'true') {
+      onLoad();
+      return;
+    }
+
+    script.addEventListener('load', onLoad, { once: true });
+    return () => script.removeEventListener('load', onLoad);
+  }, [amount]);
+
+  useEffect(() => {
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let component: AcmeComponent | undefined;
     const check = () => {
-      if (cancelled) { return; }
       const w = window as unknown as Record<string, unknown>;
       const ap = w.acmePayments as { ui?: { components?: AcmeComponents } } | undefined;
       if (ap?.ui?.components) {
         if (cancelled) { return; }
         setReady(true);
         setDetectedAt(Date.now());
-        component = ap.ui.components.create('promo', {
+        const comp = ap.ui.components.create('promo', {
           amount,
           pageType: 'product',
         });
         if (containerRef.current) {
-          component.render('#old-way-vite');
+          comp.render('#old-way-vite');
         }
       } else {
         setPollCount((c) => c + 1);
-        timer = setTimeout(check, 100);
+        setTimeout(check, 100);
       }
     };
     check();
     return () => {
       cancelled = true;
-      clearTimeout(timer);
-      component?.destroy();
     };
   }, [amount]);
 
@@ -224,6 +263,21 @@ function OldWayPromo({ amount }: { amount: number }) {
       }}
     >
       <div style={{ marginBottom: '0.75rem' }}>
+        {scriptLoaded && apiError && (
+          <p
+            data-testid="script-loaded-error"
+            style={{
+              color: '#f38ba8',
+              padding: '0.5rem',
+              borderRadius: '4px',
+              fontSize: '0.85rem',
+              margin: '0 0 0.5rem',
+              backgroundColor: '#45475a',
+            }}
+          >
+            script.onload fired — {apiError}
+          </p>
+        )}
         {!ready && (
           <p style={{ color: '#6c7086', margin: 0 }}>
             Polling every 100ms... ({pollCount} polls)
@@ -247,7 +301,8 @@ function OldWayPromo({ amount }: { amount: number }) {
  * `acmePayments.ui.components`. The core engine installs a PropertyTrap
  * on `window.acmePayments`, then lazily wraps each level in a Proxy as
  * properties are assigned. When `ui.components` is finally set (~800ms),
- * interception queues delivery. Default auto also keeps snapshot polling enabled.
+ * the Proxy `set` trap fires and the callback resolves immediately —
+ * no polling, no race conditions, no wasted CPU cycles.
  *
  * The status hook exposes the full lifecycle: `watching` → `ready` | `timeout` | `error`,
  * allowing the UI to show meaningful loading states instead of a blank screen.
@@ -263,15 +318,16 @@ function NewWayPromo({ amount }: { amount: number }) {
   );
   const [detectedAt, setDetectedAt] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const renderedRef = useRef(false);
 
   useEffect(() => {
-    if (components) {
+    if (components && !renderedRef.current) {
       setDetectedAt(Date.now());
+      renderedRef.current = true;
       const comp = components.create('promo', { amount, pageType: 'product' });
       if (containerRef.current) {
         comp.render('#new-way-vite');
       }
-      return () => { comp.destroy(); };
     }
   }, [components, amount]);
 
