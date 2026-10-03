@@ -4,8 +4,9 @@ import { command, inspectArtifact } from './validation.ts';
 const manifestPath = process.argv[2];
 if (!manifestPath) {throw new Error('Provide the candidate evidence manifest');}
 const manifest = await Bun.file(resolve(manifestPath)).json();
+const manifestDirectory = dirname(resolve(manifestPath));
 async function requireEvidence(path: unknown, label: string) {
-  if (typeof path !== 'string' || !path || !await Bun.file(resolve(dirname(resolve(manifestPath!)), path)).exists()) {
+  if (typeof path !== 'string' || !path || !await Bun.file(resolve(manifestDirectory, path)).exists()) {
     throw new Error(`${label} evidence file is missing; return to validation`);
   }
 }
@@ -21,7 +22,7 @@ const head = (await command(['git', 'rev-parse', 'HEAD'])).trim();
 if (head !== manifest.sourceSha || (await command(['git', 'status', '--porcelain'])).trim()) {
   throw new Error('Checkout differs from the clean candidate source SHA; return to validation');
 }
-const artifact = await inspectArtifact(resolve(manifest.tarball));
+const artifact = await inspectArtifact(resolve(manifestDirectory, manifest.tarball));
 if (artifact.name !== 'windotwatchr' || artifact.version !== '0.3.0' || artifact.integrity !== manifest.integrity) {
   throw new Error('Tarball identity differs from the candidate; return to validation');
 }

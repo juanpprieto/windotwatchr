@@ -1,7 +1,10 @@
 import { test, expect } from '../shared/browser-test';
-import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, getCapturedEvents } from '../shared/sdk-detection';
+import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, getCapturedEvents, verifyNavigationCleanup } from '../shared/sdk-detection';
 
 test.describe('Dashboard page — Next.js', () => {
+  test('navigation preserves raw SDK state and remounts both examples', async ({ page }) => {
+    await verifyNavigationCleanup(page);
+  });
   test.beforeEach(async ({ page }) => {
     await collectWatcherEvents(page, 'ww:ready');
     await page.goto('dashboard');

@@ -1,7 +1,10 @@
 import { test, expect } from '../shared/browser-test';
-import { expectStatus, expectWindowGlobal, getDetectedAt } from '../shared/sdk-detection';
+import { expectStatus, expectWindowGlobal, getDetectedAt, verifyNavigationCleanup } from '../shared/sdk-detection';
 
 test.describe('Dashboard page — Vite + React', () => {
+  test('navigation preserves raw SDK state and remounts both examples', async ({ page }) => {
+    await verifyNavigationCleanup(page);
+  });
   test.beforeEach(async ({ page }) => {
     await page.goto('#/dashboard');
     await expect(page.locator('h1')).toContainText('SDK Status Dashboard');
