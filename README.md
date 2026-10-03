@@ -9,6 +9,12 @@
 
 > Detect readiness of `window.*` globals and nested APIs with assignment interception and optional polling.
 
+**Development version:** this branch documents the proposed 0.3.0 release. The
+published npm version is currently 0.2.0; `npm install windotwatchr` installs that
+version. Follow [the setup instructions](CONTRIBUTING.md#setup) and build locally
+to evaluate the behavior described here. Final
+versioning, validation and publication remain pending.
+
 - **Zero dependencies.** React is an optional peer dep.
 - **Proxy-based.** Intercepts property assignment via `Object.defineProperty` traps and ES Proxies. Queues a callback for the next microtask when your readiness predicate passes.
 - **Typed.** Written in TypeScript. Generics flow through to your callback or hook result.
@@ -21,10 +27,10 @@ The package is ESM-only. Import from `windotwatchr` or `windotwatchr/react` in a
 
 ### AI Agent Skill
 
-Give your AI coding agent deep knowledge of windotwatchr's API, internals, and best practices:
+Install the skill for API usage, detection limits and contributor instructions:
 
 ```bash
-# Any agent (Claude Code, Cursor, Copilot, 38+ others)
+# Agents supported by the skills CLI
 npx skills add juanpprieto/windotwatchr -s windotwatchr-expert
 
 # Claude Code plugin marketplace
@@ -89,7 +95,9 @@ const ap = await waitForWindot<typeof AfterPay>('AfterPay', {
 import { useWatchWindot } from 'windotwatchr/react';
 
 function Checkout() {
-  const { value: afterPay, status, error } = useWatchWindot<typeof AfterPay>('AfterPay');
+  const { value: afterPay, status, error } = useWatchWindot<typeof AfterPay>('AfterPay', {
+    timeout: 10_000,
+  });
 
   if (status === 'error')   return <p>Error: {error?.message}</p>;
   if (status === 'timeout') return <p>AfterPay took too long.</p>;
@@ -131,7 +139,7 @@ Tie a watcher to an `AbortController`. Aborting rejects `waitForWindot` with the
 const controller = new AbortController();
 
 waitForWindot('AfterPay', { signal: controller.signal })
-  .catch((err) => console.log(err.name)); // "AbortError", or your custom reason
+  .catch((reason: unknown) => console.log(reason)); // Preserves the exact reason
 
 controller.abort(); // or: controller.abort(new Error('navigated away'))
 ```
@@ -158,9 +166,9 @@ The SDK must initialize separately. A synchronous scope that exits immediately c
 
 ## API
 
-### `watchWindot<T>(path, callback, options?): DisposeFunction`
+### `watchWindot<T>(path, callback, options?): DisposableWatcher`
 
-Watches a `window` property path. Calls `callback` with the resolved value when the readiness predicate passes. Returns a function that stops watching; the function also carries `Symbol.dispose` for use with `using`.
+Watches a `window` property path. Calls `callback` with the resolved value when the readiness predicate passes. Returns a callable disposer. When the runtime provides `Symbol.dispose`, the function also carries that method for use with `using`. `DisposableWatcher` and the plain callable `DisposeFunction` are exported types.
 
 ### `waitForWindot<T>(path, options?): Promise<T>`
 
@@ -224,11 +232,11 @@ These are typed on `WindowEventMap`, so `window.addEventListener('ww:ready', (e)
 1. `watchWindot('a.b.c', cb)` installs an `Object.defineProperty` trap on `window.a`.
 2. When `window.a` is assigned an object, the engine wraps it in a Proxy and watches for `b`.
 3. When `b` is assigned, another Proxy watches for `c`.
-4. When `c` is assigned and passes the readiness predicate, `cb` fires in the same microtask.
+4. When `c` is assigned and passes the readiness predicate, the engine queues `cb` for microtask delivery. It rechecks readiness before the ready event and again before the callback.
 
 If a root arrives whole — `window.a = { b: { c } }` in one assignment — the engine resolves every already-registered sub-path watcher against the new value in a single pass, so nothing waits on individual property writes that never come.
 
-Multiple watchers on the same root key share a single trap (ref-counted), and their poll fallbacks are ref-counted too. Cleanup is automatic when all subscribers dispose.
+Multiple interception watchers on the same root key share a single trap. Enabled polls on the same path share a timer, which follows the fastest live interval. Shared resources are released when their last subscriber disposes.
 
 With enabled `auto`/`poll` checks, each watched path continues sampling until disposal. Equal ready snapshots do not repeat a callback; an observed not-ready-to-ready transition does. Distinct intercepted assignments deliver independently, even if their primitive or object identity is equal. Raw A-to-B-to-A mutations between polls cannot be reconstructed. Predicates must be synchronous and side-effect-free because they can run several times around delivery and event listeners.
 
@@ -262,6 +270,7 @@ Install the pinned Bun version with `mise install`, then run:
 bun install --frozen-lockfile
 bun --bun run playwright install chromium firefox webkit
 bun run check
+bun run docs:check
 bun run build
 bun run test:consumers
 bun run build:examples

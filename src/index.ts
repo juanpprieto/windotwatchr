@@ -21,8 +21,12 @@ export type {
  * protocol, so it works with `using`:
  *
  * ```ts
- * using watcher = watchWindot('Stripe', onReady);
- * // auto-disposed at end of scope
+ * // Keep this async scope open until the callback signals readiness.
+ * let signalReady!: () => void;
+ * const ready = new Promise<void>(resolve => { signalReady = resolve; });
+ * using watcher = watchWindot('SDK', () => signalReady());
+ * await ready;
+ * // Disposed when the enclosing scope exits.
  * ```
  *
  * Calling it directly (`watcher()`) still works for non-`using` callers.
@@ -108,8 +112,10 @@ function makeAbortError(): Error {
  * ```ts
  * import { watchWindot } from 'windotwatchr';
  *
- * const dispose = watchWindot<StripeCheckout>('Stripe.checkout', (checkout) => {
- *   checkout.redirectToCheckout({ sessionId: '...' });
+ * const dispose = watchWindot<() => void>('acmeSDK.initialize', (initialize) => {
+ *   initialize();
+ * }, {
+ *   ready: candidate => typeof candidate === 'function',
  * });
  *
  * // Cleanup:
@@ -176,14 +182,17 @@ export function watchWindot<T = unknown>(
  * ```ts
  * import { waitForWindot } from 'windotwatchr';
  *
- * const maps = await waitForWindot<typeof google.maps>('google.maps');
- * const map = new maps.Map(element, { center, zoom: 12 });
+ * const initialize = await waitForWindot<() => void>('acmeSDK.initialize', {
+ *   timeout: 5_000,
+ *   ready: candidate => typeof candidate === 'function',
+ * });
+ * initialize();
  * ```
  *
  * @example
  * ```ts
- * // With timeout — rejects if Stripe doesn't load within 10 seconds:
- * const stripe = await waitForWindot<Stripe>('Stripe', {
+ * // Initial deadline, followed by three extra checks before final rejection:
+ * const sdk = await waitForWindot('SDK', {
  *   timeout: 10_000,
  *   retries: 3,
  * });

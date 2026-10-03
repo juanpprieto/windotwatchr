@@ -3,17 +3,29 @@
 ## Setup
 
 ```bash
-pnpm install
+mise install
+bun install --frozen-lockfile
+bun --bun run playwright install chromium firefox webkit
 ```
 
 ## Development
 
-Run all quality gates before pushing:
+Run these checks from the repository root before opening a PR:
 
 ```bash
-pnpm check    # typecheck + lint + test
-pnpm build    # verify clean build
+bun run check          # typecheck, lint, Chromium/Firefox and server tests
+bun run docs:check
+bun run build
+bun run test:consumers
+bun run build:examples
+bun run test:e2e
 ```
+
+On a supported host, also run `bun run test:all` and both
+`bun run test:consumers -- --all-browsers` and
+`bun run test:consumers:minimum -- --all-browsers`. Linux CI requires WebKit,
+the minimum consumer profile and Node 18.0.0 server imports. The default local
+suite covers Chromium and Firefox; it does not replace those CI checks.
 
 ## Commit conventions
 
@@ -30,22 +42,31 @@ Use [conventional commits](https://www.conventionalcommits.org/):
 If your change is user-facing, add a changeset before opening a PR:
 
 ```bash
-pnpm changeset
+bun run changeset
 ```
 
 ## Pull requests
 
 - Fill out the PR template
-- Ensure `pnpm check` passes
+- Run the development checks above and fill out their results in the PR
 - Keep PRs focused — one concern per PR
 
 ## Release process
 
-Releases are fully automated. No manual npm login or tokens required.
+The [version workflow](.github/workflows/release.yml) creates a "Version Packages"
+PR after changesets reach `main`. It updates versions and the changelog. Merging
+that PR does not publish to npm or create a GitHub release; automatic publication
+is disabled while the final artifact gate is being completed.
 
-1. PRs with changesets get merged to `main`
-2. The [Release workflow](.github/workflows/release.yml) creates a "Version Packages" PR that bumps versions and updates the changelog
-3. Merging the "Version Packages" PR publishes to npm and creates a GitHub release
-4. npm authentication uses [OIDC Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) — no `NPM_TOKEN` secret needed
+For 0.3.0, maintainers must build and pack the final versioned commit, run the
+required checks on that artifact, and obtain independent approval identifying
+its commit and tarball digest. Content changes require new validation and
+approval. Publication requires separate authorization. See the
+[release gates](docs/0.3.0-remediation-roadmap.md#execution-order-and-completion-gates).
 
-Only maintainers listed in [CODEOWNERS](.github/CODEOWNERS) can merge to `main`.
+The published 0.2.0 package used npm trusted publishing. That historical
+configuration does not establish the authentication or provenance of a future
+release; those must be verified during publication.
+
+[CODEOWNERS](.github/CODEOWNERS) identifies reviewers. Merge permissions and
+required reviews depend on the repository's GitHub settings.
