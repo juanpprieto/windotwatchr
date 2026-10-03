@@ -70,14 +70,14 @@ export async function waitForWatcherEvent(
 }
 
 /**
- * Inject a ww:* event listener BEFORE scripts load, collecting all events.
- * Call this right after page.goto() to capture events from the start.
+ * Install a ww:* collector before the next navigation or reload.
+ * It runs before page scripts so synchronous readiness events are captured.
  */
 export async function collectWatcherEvents(
   page: Page,
   eventName: string,
 ): Promise<void> {
-  await page.evaluate((name) => {
+  await page.addInitScript((name) => {
     (window as unknown as Record<string, unknown[]>)[`__e2e_${name}`] = [];
     window.addEventListener(name, (e: Event) => {
       const detail = (e as CustomEvent).detail;

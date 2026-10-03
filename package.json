@@ -44,12 +44,13 @@
     "test:consumers:minimum": "bun scripts/check-consumers.ts --minimum",
     "check:dependencies": "bun scripts/check-dependencies.ts",
     "docs:check": "bun scripts/check-docs.ts",
+    "check:versioning": "bun scripts/check-versioning.ts",
     "test:watch": "bun --bun run vitest --project server-imports --project 'browser (chromium)' --project 'browser (firefox)'",
     "typecheck": "bun --bun run tsc --noEmit",
     "prepare": "husky",
     "check": "bun run typecheck && bun run lint && bun run test",
-    "changeset": "bun --bun run changeset",
-    "version": "bun --bun run changeset version",
+    "changeset": "bun ./node_modules/.bin/changeset",
+    "version": "bun ./node_modules/.bin/changeset version",
     "test:compatibility": "bun scripts/check-compatibility.ts",
     "test:e2e": "bun run --cwd e2e test",
     "build:examples": "bun run --cwd examples/vite-react build && bun run --cwd examples/nextjs build"
@@ -60,7 +61,6 @@
     ]
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
@@ -103,6 +103,7 @@
     "esbuild"
   ],
   "workspaces": [
+    ".",
     "examples/*",
     "e2e"
   ]

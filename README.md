@@ -271,6 +271,7 @@ bun install --frozen-lockfile
 bun --bun run playwright install chromium firefox webkit
 bun run check
 bun run docs:check
+bun run check:versioning
 bun run build
 bun run test:consumers
 bun run build:examples

@@ -69,5 +69,5 @@ This pre-1.0 minor-number increment includes breaking changes.
   warnings carry `{ path, reason }` without a subscription ID. Event details are
   typed on `WindowEventMap` from both public entries.
 - Tooling uses Bun, Vite and Vitest with real browser tests. The dependency
-  inventory dated 2026-10-02 records React/React DOM 19.3.0 and the selected
+  inventory dated 2026-10-03 records React/React DOM 19.3.0 and the selected
   stable tooling versions; minimum/current consumer checks remain release gates.

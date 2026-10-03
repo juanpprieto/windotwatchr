@@ -1,17 +1,10 @@
 {
-  "checkedAt": "2026-10-02T18:21:35.607Z",
+  "checkedAt": "2026-10-03T09:06:40.072Z",
   "bun": "1.4.2",
   "packages": [
     {
       "manifest": "package.json",
       "dependencies": [
-        {
-          "name": "@changesets/changelog-github",
-          "range": "^1.0.1",
-          "installed": "1.0.1",
-          "latest": "1.0.1",
-          "current": true
-        },
         {
           "name": "@changesets/cli",
           "range": "^3.0.3",
@@ -167,6 +160,13 @@
           "range": "^2.5.1",
           "installed": "2.5.1",
           "latest": "2.5.1",
+          "current": true
+        },
+        {
+          "name": "@types/node",
+          "range": "^26.6.4",
+          "installed": "26.6.4",
+          "latest": "26.6.4",
           "current": true
         },
         {

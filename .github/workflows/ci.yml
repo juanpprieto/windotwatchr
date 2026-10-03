@@ -13,6 +13,7 @@ jobs:
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run docs:check
+      - run: bun run check:versioning
       - run: bun run test:all
       - run: bun run build
       - run: bun run test:consumers -- --all-browsers

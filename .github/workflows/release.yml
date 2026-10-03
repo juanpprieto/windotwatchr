@@ -15,6 +15,7 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      - run: bun run check:versioning
       - uses: changesets/action@v2.1.2
         with:
           version: bun run version

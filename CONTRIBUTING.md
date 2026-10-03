@@ -15,6 +15,7 @@ Run these checks from the repository root before opening a PR:
 ```bash
 bun run check          # typecheck, lint, Chromium/Firefox and server tests
 bun run docs:check
+bun run check:versioning
 bun run build
 bun run test:consumers
 bun run build:examples
@@ -52,6 +53,11 @@ bun run changeset
 - Keep PRs focused — one concern per PR
 
 ## Release process
+
+Run `bun run changeset -- status --verbose` to inspect pending releases.
+`bun run check:versioning` rehearses the version command in a temporary workspace
+without changing source versions or publishing. Versioning uses Changesets'
+bundled changelog generator and does not need a GitHub token.
 
 The [version workflow](.github/workflows/release.yml) creates a "Version Packages"
 PR after changesets reach `main`. It updates versions and the changelog. Merging

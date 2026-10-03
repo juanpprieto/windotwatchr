@@ -3,6 +3,7 @@ import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, 
 
 test.describe('Payments page — Vite + React', () => {
   test.beforeEach(async ({ page }) => {
+    await collectWatcherEvents(page, 'ww:ready');
     await page.goto('#/payments');
     // Wait for route to render
     await expect(page.locator('h1')).toContainText('Payments');
@@ -39,8 +40,6 @@ test.describe('Payments page — Vite + React', () => {
   });
 
   test('ww:ready event fires for deep path', async ({ page }) => {
-    await collectWatcherEvents(page, 'ww:ready');
-
     await expectStatus(page, 'new-way', 'ready', 10_000);
 
     const events = await getCapturedEvents(page, 'ww:ready');

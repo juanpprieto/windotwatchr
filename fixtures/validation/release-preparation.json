@@ -1,0 +1,325 @@
+{
+  "checkedAt": "2026-10-03T09:14:31.349Z",
+  "stage": "development release preparation; final versioning and independent approval outstanding",
+  "baseCommit": "038f0a1ad39c8c8c61e9f1a2ae3d80c9056c91a8",
+  "overlay": [
+    {
+      "path": ".changeset/config.json",
+      "sha256": "29428881b18dfe28d7fd4d060af5467a155411814974d28940e7389ea02dbb13"
+    },
+    {
+      "path": ".changeset/tall-otters-shine.md",
+      "sha256": "952f54d2a8c20c26e4bb3df4d8207cc620964573766ba225b4dc77fe7788e7b1"
+    },
+    {
+      "path": ".claude/skills/windotwatchr-expert/topics/09-contributing.md",
+      "sha256": "eef4d7c81af8714a4a6a089dfae42e6fc3dc2d64e4d6280615c509e720f32eb5"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "cee7fd71b1f2c32f820aa4d1f1e3e952e2a1b1debf2c0bff064ff20a0c917588"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "707269c9933ff7861df7cff985df70e6b6822b9545111079abd70de41e625c44"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "a4c876d3e64b12895d112c83d12abc1cdec8fcdca10b7e2f59c10c22735426ba"
+    },
+    {
+      "path": "README.md",
+      "sha256": "5641e70a1f408207f83ff358ce3bd963715f3c8178ae554f89c582053ac727d3"
+    },
+    {
+      "path": "bun.lock",
+      "sha256": "a277c05c94278c70fe3fdbdea577711227bb9b645e73e9f95afcf35a548de97c"
+    },
+    {
+      "path": "docs/0.3.0-validation-ledger.md",
+      "sha256": "05884b39ab2d5595098ac1ad02543f2c188390a84515376fc088b5d995e4f329"
+    },
+    {
+      "path": "e2e/tests/nextjs/dashboard.spec.ts",
+      "sha256": "813324c0807ffc0cbf112bd18b829e0db81e8931517de78e2326979a0454a94d"
+    },
+    {
+      "path": "e2e/tests/nextjs/payments.spec.ts",
+      "sha256": "53c88d616d9004be07b5baa276f02ec5f584840e81da6e5793dd8dcd21e2552d"
+    },
+    {
+      "path": "e2e/tests/shared/sdk-detection.ts",
+      "sha256": "fc73a82bd5cf95c65f20848d03139c70dd40f43399b24a0e302ac27490fa2e33"
+    },
+    {
+      "path": "e2e/tests/vite-react/payments.spec.ts",
+      "sha256": "be002f507126c78827419a80e694da78b0a87e6d091699bd4dba244f004a5343"
+    },
+    {
+      "path": "examples/nextjs/package.json",
+      "sha256": "202b76f3e144b4dd5f280376943ba290b460846848b1637638dc11709b8b2ff4"
+    },
+    {
+      "path": "fixtures/validation/dependencies.json",
+      "sha256": "402c8bce09c07f7f74b5fe826e8be45a6feab5ea1089ad6bcb3b07228ed766bd"
+    },
+    {
+      "path": "package.json",
+      "sha256": "bc1a59df20fe07444ac694c62ca1d9b78b63812138b663d852ed88156888d97e"
+    },
+    {
+      "path": "scripts/check-versioning.ts",
+      "sha256": "19aa66cd496c0affac6a81be5e4e5fe070c807b674e486e044548dd126526b52"
+    }
+  ],
+  "environment": {
+    "os": "Linux arm64",
+    "image": "windotwatchr-linux-validation:latest",
+    "imageId": "e33060e53189",
+    "bun": "1.4.2"
+  },
+  "gates": {
+    "frozenInstall": {
+      "command": "bun install --frozen-lockfile --ignore-scripts",
+      "passed": true
+    },
+    "typecheck": {
+      "command": "bun run typecheck",
+      "passed": true
+    },
+    "lint": {
+      "command": "bun run lint",
+      "passed": true
+    },
+    "documentation": {
+      "command": "bun run docs:check",
+      "passed": true
+    },
+    "versioning": {
+      "command": "bun run check:versioning",
+      "passed": true
+    },
+    "browsers": {
+      "command": "bun run test:all",
+      "total": 631,
+      "passed": 631,
+      "failed": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    "build": {
+      "command": "bun run build",
+      "passed": true
+    },
+    "productionExamples": {
+      "command": "bun run build:examples",
+      "passed": true
+    },
+    "exampleBrowserTests": {
+      "command": "bun run test:e2e -- --reporter=line --workers=2",
+      "total": 49,
+      "passed": 49,
+      "failed": 0
+    },
+    "eventCaptureRegression": {
+      "command": "bun --bun run playwright test --project=nextjs --grep \"ww:ready events fire for all 4 SDKs\" --repeat-each=5 --reporter=json --workers=2",
+      "cwd": "e2e",
+      "total": 5,
+      "passed": 5,
+      "failed": 0
+    },
+    "audit": {
+      "command": "bun audit --json",
+      "result": {},
+      "passed": true
+    }
+  },
+  "currentConsumers": {
+    "package": {
+      "name": "windotwatchr",
+      "version": "0.2.0",
+      "integrity": "sha512-ZvlnoNl7Na2gCHPcXCWwtUedR2/4tiyion00RgAG2Svdo11dz6IU0t80w6HSqj13PmG7NgRxo43CL7yiK7yNwQ=="
+    },
+    "profile": "current",
+    "bun": "1.4.2",
+    "serverRuntime": {
+      "executable": "bun",
+      "version": "1.4.2"
+    },
+    "compiler": "7.0.2",
+    "react": "19.3.0",
+    "browsers": [
+      {
+        "engine": "chromium",
+        "version": "153.0.8010.12"
+      },
+      {
+        "engine": "firefox",
+        "version": "155.0"
+      },
+      {
+        "engine": "webkit",
+        "version": "26.6"
+      }
+    ],
+    "cases": [
+      {
+        "name": "Packed artifact contains import-only public entries and no CommonJS output",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations core.mts / Node16",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations react.mts / Node16",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations core.mts / NodeNext",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations react.mts / NodeNext",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations core.mts / Bundler",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations react.mts / Bundler",
+        "passed": true
+      },
+      {
+        "name": "Using syntax and unchanged README example compile",
+        "passed": true
+      },
+      {
+        "name": "Packed ESM chromium: scopes, README, core/hook ownership and conflict isolation",
+        "passed": true
+      },
+      {
+        "name": "Packed ESM firefox: scopes, README, core/hook ownership and conflict isolation",
+        "passed": true
+      },
+      {
+        "name": "Packed ESM webkit: scopes, README, core/hook ownership and conflict isolation",
+        "passed": true
+      },
+      {
+        "name": "ESM server imports expose core and React without a window",
+        "passed": true
+      }
+    ]
+  },
+  "minimumConsumers": {
+    "package": {
+      "name": "windotwatchr",
+      "version": "0.2.0",
+      "integrity": "sha512-ZvlnoNl7Na2gCHPcXCWwtUedR2/4tiyion00RgAG2Svdo11dz6IU0t80w6HSqj13PmG7NgRxo43CL7yiK7yNwQ=="
+    },
+    "profile": "minimum",
+    "bun": "1.4.2",
+    "serverRuntime": {
+      "executable": "/tmp/windot-node18/bin/node",
+      "version": "v18.0.0"
+    },
+    "compiler": "5.5.4",
+    "react": "16.8.0",
+    "browsers": [
+      {
+        "engine": "chromium",
+        "version": "153.0.8010.12"
+      },
+      {
+        "engine": "firefox",
+        "version": "155.0"
+      },
+      {
+        "engine": "webkit",
+        "version": "26.6"
+      }
+    ],
+    "cases": [
+      {
+        "name": "Packed artifact contains import-only public entries and no CommonJS output",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations core.mts / Node16",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations react.mts / Node16",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations core.mts / NodeNext",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations react.mts / NodeNext",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations core.mts / Bundler",
+        "passed": true
+      },
+      {
+        "name": "Strict ESM declarations react.mts / Bundler",
+        "passed": true
+      },
+      {
+        "name": "Using syntax and unchanged README example compile",
+        "passed": true
+      },
+      {
+        "name": "Packed ESM chromium: scopes, README, core/hook ownership and conflict isolation",
+        "passed": true
+      },
+      {
+        "name": "Packed ESM firefox: scopes, README, core/hook ownership and conflict isolation",
+        "passed": true
+      },
+      {
+        "name": "Packed ESM webkit: scopes, README, core/hook ownership and conflict isolation",
+        "passed": true
+      },
+      {
+        "name": "ESM server imports expose core and React without a window",
+        "passed": true
+      }
+    ]
+  },
+  "versionRehearsal": {
+    "actualPendingChangesetAppliedInIsolatedClone": true,
+    "generatedVersion": "0.3.0",
+    "breakingMigrationNotesPresent": true,
+    "historicalChangelogPreserved": true,
+    "sourceVersionUnchanged": "0.2.0",
+    "missingRootWorkspaceRejectedByRegressionCheck": true,
+    "registryMutation": false
+  },
+  "findingsResolved": [
+    "Bun changeset script recursively called itself instead of the CLI",
+    "Root library was absent from Changesets workspace discovery",
+    "GitHub changelog generator required credentials for local versioning",
+    "Next.js clean build required an undeclared @types/node dependency",
+    "Post-navigation collector missed synchronous analytics readiness"
+  ],
+  "npm": {
+    "checkedAt": "2026-10-03T09:14:31.349Z",
+    "latest": "0.2.0",
+    "targetVersionExists": false
+  },
+  "releaseReady": false,
+  "remaining": [
+    "Criterion-level evidence and contract decision reconciliation",
+    "Path-allocation decision and reproducible performance/size measurements",
+    "Remaining browser UAT, including real Next development StrictMode and actually throttled background tabs",
+    "Exact-commit/digest publication gate and failure rehearsal",
+    "Final versioned SHA/tarball validation and independent approval",
+    "Separate publication authorization and subsequent registry/provenance/Pages verification"
+  ]
+}
