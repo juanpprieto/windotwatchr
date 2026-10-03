@@ -11,7 +11,7 @@ argument-hint: "windotwatchr, watchWindot, waitForWindot, useWatchWindot, ww:rea
 
 # windotwatchr Expert
 
-Usage and contributor guidance for [windotwatchr](https://github.com/juanpprieto/windotwatchr), which detects when watched `window.*` values satisfy a readiness predicate. These topics describe the proposed 0.3.0 behavior; the published npm version is currently 0.2.0.
+Usage and contributor guidance for [windotwatchr](https://github.com/juanpprieto/windotwatchr), which detects when watched `window.*` values satisfy a readiness predicate. These topics describe version 0.3.0, including its breaking changes from 0.2.0.
 
 > **Root**: Repository root (where `package.json` with `"name": "windotwatchr"` lives)
 > **Core engine**: `src/core/` — root traps, lazy proxies, subscription predicates, notification queue, shared polling and event dispatch

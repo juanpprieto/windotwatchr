@@ -16,12 +16,14 @@ jobs:
       - run: bun run check:versioning
       - run: bun run test:all
       - run: bun run build
-      - run: bun run test:consumers -- --all-browsers
+      - run: bun pm pack --ignore-scripts --filename /tmp/windotwatchr-candidate.tgz
+      - run: bun run test:consumers -- --all-browsers --tarball /tmp/windotwatchr-candidate.tgz
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: '18.0.0'
-      - run: bun run test:consumers:minimum -- --all-browsers
+      - run: bun run test:consumers:minimum -- --all-browsers --tarball /tmp/windotwatchr-candidate.tgz
         env:
           WINDOT_SERVER_RUNTIME: node
       - run: bun run build:examples
       - run: bun run test:e2e -- --reporter=line --workers=2
+      - run: xvfb-run -a bun run test:release-browser -- --tarball /tmp/windotwatchr-candidate.tgz

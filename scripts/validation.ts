@@ -15,17 +15,23 @@ export async function command(args: string[], cwd = repository): Promise<string>
   return stdout;
 }
 
-export async function temporaryDirectory(label: string) {
-  const path = await mkdtemp(join(tmpdir(), `windot-${label}-`));
+export async function temporaryDirectory(label: string, parent = tmpdir()) {
+  await mkdir(parent, { recursive: true });
+  const path = await mkdtemp(join(parent, `windot-${label}-`));
   return { path, async [Symbol.asyncDispose]() { await rm(path, { recursive: true, force: true }); } };
 }
 
 export async function pack(destination: string) {
   const filename = join(destination, 'candidate.tgz');
   await command(['bun', 'pm', 'pack', '--ignore-scripts', '--filename', filename, '--quiet']);
+  return inspectArtifact(filename);
+}
+
+/** Read the identity of the archive being tested, rather than the source manifest. */
+export async function inspectArtifact(filename: string) {
   const bytes = await Bun.file(filename).arrayBuffer();
   const integrity = `sha512-${new Bun.CryptoHasher('sha512').update(bytes).digest('base64')}`;
-  const metadata = await Bun.file(join(repository, 'package.json')).json();
+  const metadata = JSON.parse(await command(['tar', '-xOf', filename, 'package/package.json']));
   return { filename, name: metadata.name, version: metadata.version, integrity };
 }
 

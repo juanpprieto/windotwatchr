@@ -9,11 +9,7 @@
 
 > Detect readiness of `window.*` globals and nested APIs with assignment interception and optional polling.
 
-**Development version:** this branch documents the proposed 0.3.0 release. The
-published npm version is currently 0.2.0; `npm install windotwatchr` installs that
-version. Follow [the setup instructions](CONTRIBUTING.md#setup) and build locally
-to evaluate the behavior described here. Final
-versioning, validation and publication remain pending.
+**Version 0.3.0 includes breaking changes from 0.2.0.** Read the migration notes below before upgrading.
 
 - **Zero dependencies.** React is an optional peer dep.
 - **Proxy-based.** Intercepts property assignment via `Object.defineProperty` traps and ES Proxies. Queues a callback for the next microtask when your readiness predicate passes.

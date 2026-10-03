@@ -1,6 +1,6 @@
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { extract, pack, repository, temporaryDirectory } from './validation.ts';
+import { extract, inspectArtifact, pack, repository, temporaryDirectory } from './validation.ts';
 
 await using workspace = await temporaryDirectory('baseline');
 const metadataResponse = await fetch('https://registry.npmjs.org/windotwatchr/0.2.0');
@@ -14,7 +14,10 @@ if (integrity !== metadata.dist.integrity) {throw new Error('Published baseline 
 const baselineTarball = join(workspace.path, 'baseline.tgz');
 await Bun.write(baselineTarball, bytes);
 await extract(baselineTarball, join(workspace.path, 'baseline'));
-const candidate = await pack(workspace.path);
+const tarballArgument = process.argv.indexOf('--tarball');
+if (tarballArgument !== -1 && !process.argv[tarballArgument + 1]) {throw new Error('--tarball requires a filename');}
+const candidate = tarballArgument === -1 ? await pack(workspace.path)
+  : await inspectArtifact(resolve(process.argv[tarballArgument + 1]!));
 await extract(candidate.filename, join(workspace.path, 'candidate'));
 const server = Bun.serve({
   port: 0, hostname: '127.0.0.1',
@@ -49,6 +52,6 @@ try {
     bun: Bun.version, browser: browser.version(), format: 'ESM',
     results: { baseline: baselineResults, candidate: candidateResults },
   };
-  await Bun.write(join(repository, 'fixtures/validation/published-baseline-comparison.json'), JSON.stringify(evidence, null, 2) + '\n');
+  await Bun.write(resolve(repository, process.env.WINDOT_COMPATIBILITY_REPORT ?? 'fixtures/validation/published-baseline-comparison.json'), JSON.stringify(evidence, null, 2) + '\n');
   process.stdout.write(JSON.stringify(evidence, null, 2) + '\n');
 } finally { await browser.close(); await server.stop(); }

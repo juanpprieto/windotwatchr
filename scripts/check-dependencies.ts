@@ -1,4 +1,4 @@
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { repository } from './validation.ts';
 
 const manifests = ['package.json', 'e2e/package.json', 'examples/nextjs/package.json', 'examples/vite-react/package.json'];
@@ -14,7 +14,7 @@ const packages = await Promise.all(manifests.map(async path => {
   return { manifest: path, dependencies };
 }));
 const evidence = { checkedAt: new Date().toISOString(), bun: Bun.version, packages };
-await Bun.write(join(repository, 'fixtures/validation/dependencies.json'), JSON.stringify(evidence, null, 2) + '\n');
+await Bun.write(resolve(repository, process.env.WINDOT_DEPENDENCY_REPORT ?? 'fixtures/validation/dependencies.json'), JSON.stringify(evidence, null, 2) + '\n');
 const outdated = packages.flatMap(workspace => workspace.dependencies.filter(dependency => !dependency.current));
 if (outdated.length) {throw new Error(`Dependencies requiring refresh or disposition: ${outdated.map(dependency => dependency.name).join(', ')}`);}
 process.stdout.write('All direct workspace dependencies match latest stable registry versions.\n');

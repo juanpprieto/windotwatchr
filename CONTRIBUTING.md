@@ -70,6 +70,38 @@ its commit and tarball digest. Content changes require new validation and
 approval. Publication requires separate authorization. See the
 [release gates](docs/0.3.0-remediation-roadmap.md#execution-order-and-completion-gates).
 
+### Verify a prepared candidate
+
+Keep the tarball and evidence outside the checkout. From the clean final commit:
+
+```sh
+bun run test:consumers -- --all-browsers --tarball /absolute/path/candidate.tgz
+bun run test:consumers:minimum -- --all-browsers --tarball /absolute/path/candidate.tgz
+bun run test:release-browser -- --tarball /absolute/path/candidate.tgz
+bun run verify:release /absolute/path/evidence.json
+```
+
+The release-browser check needs a graphical display, such as Xvfb on Linux. It
+runs real Next development StrictMode and a hidden Chromium tab with background
+throttling allowed. The short smoke test makes no detection deadline guarantee.
+Set `WINDOT_CONSUMER_REPORT` and `WINDOT_BROWSER_REPORT` to paths outside the
+checkout so reports do not dirty the frozen source.
+
+The evidence manifest records `sourceSha`, `tarball`, SHA-512 `integrity`,
+`implementer`, `checks` and `review`. Each required check has `sourceSha`,
+`integrity`, `status: "passed"` and an `evidence` path. Review has the same
+fingerprint, `status: "approved"`, a distinct `reviewer` and its evidence path.
+The verifier checks these records and the actual tarball against the clean
+checkout. Maintainers must read the referenced results and reviewer report;
+the JSON record is not a signature or a substitute for that review.
+
+Rehearse missing review and mismatched review fingerprints with copies of the
+manifest. Both must fail. A failed check or changed candidate returns to
+validation and independent review. Verification never invokes a publisher.
+After separate authorization, the operator must recheck the preserved bytes,
+confirm registry authentication/provenance and publish that exact archive.
+Registry integrity, tags and deployed examples are post-publication checks.
+
 The published 0.2.0 package used npm trusted publishing. That historical
 configuration does not establish the authentication or provenance of a future
 release; those must be verified during publication.

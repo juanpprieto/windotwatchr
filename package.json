@@ -1,6 +1,6 @@
 {
   "name": "windotwatchr",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Readiness detection for window.* globals and nested APIs, using interception and optional polling.",
   "license": "MIT",
   "type": "module",
@@ -17,6 +17,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "publishConfig": {
@@ -42,6 +43,8 @@
     "test:all": "bun --bun run vitest run",
     "test:consumers": "bun scripts/check-consumers.ts",
     "test:consumers:minimum": "bun scripts/check-consumers.ts --minimum",
+    "test:release-browser": "bun scripts/check-release-browser.ts",
+    "verify:release": "bun scripts/verify-release.ts",
     "check:dependencies": "bun scripts/check-dependencies.ts",
     "docs:check": "bun scripts/check-docs.ts",
     "check:versioning": "bun scripts/check-versioning.ts",

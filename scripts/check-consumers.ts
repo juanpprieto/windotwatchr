@@ -1,12 +1,15 @@
 /* eslint-disable no-await-in-loop -- Each compiler case owns the same isolated config. */
 import { mkdir, symlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createServer } from 'vite';
 import { chromium, firefox, webkit } from 'playwright';
-import { command, extract, pack, repository, temporaryDirectory } from './validation.ts';
+import { command, extract, inspectArtifact, pack, repository, temporaryDirectory } from './validation.ts';
 
 await using workspace = await temporaryDirectory('consumers');
-const artifact = await pack(workspace.path);
+const tarballArgument = process.argv.indexOf('--tarball');
+if (tarballArgument !== -1 && !process.argv[tarballArgument + 1]) {throw new Error('--tarball requires a filename');}
+const artifact = tarballArgument === -1 ? await pack(workspace.path)
+  : await inspectArtifact(resolve(process.argv[tarballArgument + 1]!));
 const consumer = join(workspace.path, 'consumer');
 const modules = join(consumer, 'node_modules');
 await extract(artifact.filename, join(modules, 'windotwatchr'));
@@ -77,7 +80,7 @@ export async function checkScopes() {
   await Promise.resolve();
   if (calls !== 1 || sdk.ThrowingSDK !== raw || Object.getOwnPropertyDescriptor(window, 'ThrowingSDK')?.get) throw new Error('throwing scope cleanup');
 }`);
-const readme = await Bun.file(join(repository, 'README.md')).text();
+const readme = await Bun.file(join(modules, 'windotwatchr/README.md')).text();
 const example = readme.split('### Auto-dispose with `using`')[1]!.split('```ts\n')[1]!.split('```')[0]!;
 await Bun.write(join(consumer, 'readme-using.mts'), `${example}\nexport { useSDKInScope };\n`);
 await Bun.write(join(consumer, 'tsconfig.json'), JSON.stringify({ compilerOptions: {
@@ -119,6 +122,6 @@ const evidence = {
   compiler: (await Bun.file(join(minimum ? consumer : repository, 'node_modules/typescript/package.json')).json()).version,
   react: (await Bun.file(join(modules, 'react/package.json')).json()).version, browsers, cases,
 };
-await Bun.write(join(repository, process.env.WINDOT_CONSUMER_REPORT ?? `fixtures/validation/${profile}-consumers.json`), JSON.stringify(evidence, null, 2) + '\n');
+await Bun.write(resolve(repository, process.env.WINDOT_CONSUMER_REPORT ?? `fixtures/validation/${profile}-consumers.json`), JSON.stringify(evidence, null, 2) + '\n');
 if (cases.some(result => !result.passed)) {throw new Error('Packed consumer checks failed');}
 process.stdout.write(`Verified packed ${artifact.name}@${artifact.version}; ${artifact.integrity}\n`);

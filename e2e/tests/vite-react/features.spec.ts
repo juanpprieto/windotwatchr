@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../shared/browser-test';
 import { waitForWWApi } from '../shared/sdk-detection';
 
 test.describe('Core features — Vite + React', () => {
