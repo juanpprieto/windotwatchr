@@ -35,7 +35,7 @@ Use conventional commits (`fix:`, `feat:`, `docs:`, `refactor:`, `test:`, `chore
 For changes after 0.3.0, run `bun run changeset` to describe the next release.
 Corrections to the unpublished 0.3.0 candidate belong in its existing changelog.
 
-The [version workflow](.github/workflows/release.yml) uses Changesets to create
+The [version workflow](.github/workflows/version.yml) uses Changesets to create
 a version PR. It does not publish. Publishing remains an explicit maintainer
 action; merging to main also deploys the examples.
 
@@ -56,10 +56,29 @@ shared subscriptions and React lifecycle behavior. These checks provide assuranc
 for supported use; they do not promise every SDK works transparently behind a
 Proxy or guarantee background-tab timing. The README explains when to use polling.
 
-After publication is authorized, upload the tested archive through the configured
-npm publishing account or trusted publisher. Confirm registry version/integrity,
-provenance where configured, and the live examples before announcing. Rebuild
-and rerun the affected checks if source or package contents change.
+### Manual publication with provenance
+
+The [Publish to npm workflow](.github/workflows/release.yml) only runs through
+GitHub's **Run workflow** button. Merge the release PR and wait for main's CI to
+pass. Select **main**, enter the exact version (for example `0.3.0`), and leave
+**Validate without uploading to npm** checked for a dry run. To publish, explicitly
+run it again with that checkbox cleared. Merging or pushing a tag never publishes.
+
+The workflow uses Node 24, npm 12.2.0 and Bun, with OIDC instead of an npm token.
+It requires successful CI for the selected commit, builds on a GitHub-hosted
+runner, checks a packed consumer, and publishes that same archive with provenance.
+After upload it compares registry integrity and checks provenance metadata.
+A dry run validates packaging but cannot verify OIDC authentication or create an
+attestation. If post-upload verification fails, inspect the published version
+before retrying; an uploaded npm version cannot be overwritten.
+
+The npm trusted publisher must match GitHub user `juanpprieto`, repository
+`windotwatchr`, workflow filename `release.yml`, with no environment name and
+**Allow npm publish** enabled. This existing connection was verified as valid on
+2026-10-15. Keep bypass-2FA tokens disabled. See npm's
+[trusted publishing guidance](https://docs.npmjs.com/trusted-publishers/).
+
+Confirm the npm provenance link and live examples before announcing the release.
 
 Test output and CI results are sufficient; no approval manifest or criterion
 ledger is required. `WINDOT_CONSUMER_REPORT` optionally saves a consumer report

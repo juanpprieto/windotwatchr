@@ -1,24 +1,88 @@
-name: Prepare Version PR
+name: Publish to npm
+
 on:
-  push:
-    branches: [main]
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact package version to publish (for example 0.3.0)
+        required: true
+        type: string
+      dry_run:
+        description: Validate without uploading to npm
+        type: boolean
+        default: true
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_DRY_RUN: ${{ inputs.dry_run }}
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: oven-sh/setup-bun@v2.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@12.2.0
+      - name: Check version, branch and CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node -e 'require("node:assert/strict").equal(require("./package.json").version, process.env.RELEASE_VERSION, "Requested version must match package.json")'
+          if [[ "$RELEASE_DRY_RUN" != "true" && "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Publication is only allowed from main."
+            exit 1
+          fi
+          passed=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f head_sha="$GITHUB_SHA" --jq '.workflow_runs | any(.event == "push" and .conclusion == "success")')
+          test "$passed" = true || { echo "CI must pass for this exact commit before release validation or publication."; exit 1; }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - uses: changesets/action@v2.1.2
-        with:
-          version: bun run version
-          title: 'Version Packages'
-          commit: 'chore: version packages'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: bun run build
+      - run: bun pm pack --ignore-scripts --filename /tmp/windotwatchr-candidate.tgz
+      - run: bun --bun run playwright install --with-deps chromium
+      - run: bun run test:consumers -- --tarball /tmp/windotwatchr-candidate.tgz
+      - name: Publish tested archive or dry run
+        run: |
+          flags=()
+          if [[ "$RELEASE_DRY_RUN" == "true" ]]; then flags+=(--dry-run); fi
+          npm publish /tmp/windotwatchr-candidate.tgz --access public --provenance --ignore-scripts "${flags[@]}"
+      - name: Check published integrity and provenance metadata
+        if: ${{ !inputs.dry_run }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const expected = 'sha512-' + createHash('sha512').update(readFileSync('/tmp/windotwatchr-candidate.tgz')).digest('base64');
+          for (let attempt = 0; attempt < 6; attempt++) {
+            const response = await fetch(`https://registry.npmjs.org/windotwatchr/${process.env.RELEASE_VERSION}`);
+            if (response.ok) {
+              const { dist } = await response.json();
+              if (dist.integrity !== expected) throw new Error('Published archive integrity differs from the tested archive');
+              if (dist.attestations?.provenance) {
+                console.log(`Verified archive integrity and provenance metadata for windotwatchr@${process.env.RELEASE_VERSION}`);
+                process.exit(0);
+              }
+            }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+          throw new Error('Upload completed but registry verification is pending. Inspect the published version before retrying; do not republish.');
+          NODE
