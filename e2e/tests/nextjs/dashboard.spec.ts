@@ -1,8 +1,12 @@
-import { test, expect } from '@playwright/test';
-import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, getCapturedEvents } from '../shared/sdk-detection';
+import { test, expect } from '../shared/browser-test';
+import { expectStatus, expectWindowGlobal, getDetectedAt, collectWatcherEvents, getCapturedEvents, verifyNavigationCleanup } from '../shared/sdk-detection';
 
 test.describe('Dashboard page — Next.js', () => {
+  test('navigation preserves raw SDK state and remounts both examples', async ({ page }) => {
+    await verifyNavigationCleanup(page);
+  });
   test.beforeEach(async ({ page }) => {
+    await collectWatcherEvents(page, 'ww:ready');
     await page.goto('dashboard');
   });
 
@@ -90,8 +94,6 @@ test.describe('Dashboard page — Next.js', () => {
   });
 
   test('ww:ready events fire for all 4 SDKs', async ({ page }) => {
-    await collectWatcherEvents(page, 'ww:ready');
-
     // Wait for all to be ready
     await expectStatus(page, 'sdk-analytics', 'ready', 5_000);
     await expectStatus(page, 'sdk-pixel', 'ready', 5_000);

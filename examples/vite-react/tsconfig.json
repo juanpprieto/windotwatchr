@@ -9,7 +9,11 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true
+    "strict": true,
+    "paths": {
+      "windotwatchr": ["../../dist/index.d.ts"],
+      "windotwatchr/react": ["../../dist/react/index.d.ts"]
+    }
   },
   "include": ["src"]
 }

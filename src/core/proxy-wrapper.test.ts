@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { createProxyWrapper } from './proxy-wrapper.js';
 import { SubscriptionManager } from './subscription-manager.js';
 
-describe('ProxyWrapper', () => {
-  function setup() {
+function setup() {
     const subManager = new SubscriptionManager();
     const wrapper = createProxyWrapper(subManager);
     return { subManager, wrapper };
-  }
+}
+
+describe('ProxyWrapper', () => {
 
   describe('wrap', () => {
     it('returns a Proxy for a plain object', () => {
@@ -117,7 +118,7 @@ describe('ProxyWrapper', () => {
       expect(cb).toHaveBeenCalledWith('sdk-value');
     });
 
-    it('does not notify for accessor descriptors (no value)', async () => {
+    it('observes the resulting lookup for accessor descriptors', async () => {
       const { subManager, wrapper } = setup();
       const cb = vi.fn();
       subManager.subscribe('Root.accessor', cb);
@@ -129,7 +130,7 @@ describe('ProxyWrapper', () => {
       });
 
       await Promise.resolve();
-      expect(cb).not.toHaveBeenCalled();
+      expect(cb).toHaveBeenCalledExactlyOnceWith(42);
     });
 
     it('ignores Symbol keys in defineProperty trap', async () => {

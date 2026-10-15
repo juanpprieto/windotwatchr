@@ -10,3 +10,5 @@
 export { useWatchWindot } from './use-watch-windot.js';
 export type { WatchWindotResult } from './use-watch-windot.js';
 export type { WatchWindotOptions, WatcherState } from '../types.js';
+
+export type { WwReadyDetail, WwTimeoutDetail, WwErrorDetail, WwWarningDetail } from '../events.js';

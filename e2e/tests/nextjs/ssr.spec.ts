@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../shared/browser-test';
 
 test.describe('SSR safety — Next.js', () => {
   test('payments page renders without SSR window crash', async ({ page }) => {

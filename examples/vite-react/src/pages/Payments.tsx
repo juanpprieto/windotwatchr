@@ -151,9 +151,9 @@ export function Payments() {
         <div>
           <h2 style={{ color: '#f38ba8' }}>Without windotwatchr</h2>
           <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.5rem 0 1rem' }}>
-            You've probably written this before. A setTimeout loop checking if the SDK exists every
-            100ms, racing against a script.onload that fires before the API is actually initialized.
-            It works eventually, but it's wasteful and timing-dependent.
+            This example checks for ui.components every 100ms. The script can finish loading and
+            executing before its asynchronous initialization exposes that API. The polling loop
+            samples readiness, so detection can arrive after the API becomes available.
           </p>
           <CodeSnippet code={OLD_WAY_CODE} />
           <h3 style={{ color: '#a6adc8', fontSize: '0.9rem', fontWeight: 400 }}>Live demo</h3>
@@ -162,9 +162,9 @@ export function Payments() {
         <div>
           <h2 style={{ color: '#a6e3a1' }}>With windotwatchr</h2>
           <p style={{ color: '#a6adc8', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.5rem 0 1rem' }}>
-            windotwatchr installs a lightweight Proxy trap on the window property path. The moment
-            the SDK assigns its API, your callback fires immediately. No polling loops, no race
-            conditions, no wasted CPU cycles.
+            windotwatchr intercepts assignments along the watched path and delivers readiness in
+            a microtask. The default auto strategy also samples every 100ms for changes that
+            interception cannot observe. The hook owns detection and releases it on unmount.
           </p>
           <CodeSnippet code={NEW_WAY_CODE} />
           <h3 style={{ color: '#a6adc8', fontSize: '0.9rem', fontWeight: 400 }}>Live demo</h3>
@@ -178,16 +178,16 @@ export function Payments() {
 /**
  * Traditional approach to detecting a third-party SDK.
  *
- * Demonstrates **two common failure modes** in real-world integrations:
+ * Demonstrates two readiness checks against this mock SDK:
  *
- * 1. **script.onload race condition** — The script tag fires its `load`
- *    event when the file finishes downloading, but the SDK's IIFE hasn't
- *    finished its async initialization yet. Calling the API immediately
+ * 1. **script.onload timing** — The `load` event follows script loading
+ *    and execution, but asynchronous SDK initialization can continue afterward.
+ *    Calling the API immediately
  *    in `onload` throws because `ui.components` doesn't exist.
  *
  * 2. **setTimeout polling** — The fallback: poll `window.acmePayments.ui.components`
- *    every 100ms until it appears. Wasteful, timing-dependent, and produces
- *    unpredictable detection latency (up to one full poll interval late).
+ *    every 100ms until it appears. Detection follows the next sample;
+ *    browser throttling can extend the configured interval.
  *
  * @param props.amount - Dollar amount in cents to display in the promo widget.
  */
@@ -295,14 +295,14 @@ function OldWayPromo({ amount }: { amount: number }) {
 }
 
 /**
- * windotwatchr approach — zero-polling, event-driven SDK detection.
+ * Watch the mock payment API with interception and default snapshot polling.
  *
  * Uses `useWatchWindot<AcmeComponents>` to watch the deep-nested path
  * `acmePayments.ui.components`. The core engine installs a PropertyTrap
  * on `window.acmePayments`, then lazily wraps each level in a Proxy as
  * properties are assigned. When `ui.components` is finally set (~800ms),
- * the Proxy `set` trap fires and the callback resolves immediately —
- * no polling, no race conditions, no wasted CPU cycles.
+ * interception queues microtask delivery. Default auto detection also samples
+ * every 100ms until cleanup to cover changes outside interception.
  *
  * The status hook exposes the full lifecycle: `watching` → `ready` | `timeout` | `error`,
  * allowing the UI to show meaningful loading states instead of a blank screen.
@@ -347,7 +347,7 @@ function NewWayPromo({ amount }: { amount: number }) {
       <div style={{ marginBottom: '0.75rem' }}>
         <p style={{ color: statusColor, margin: 0 }}>
           Status: <strong>{status}</strong>
-          {status === 'watching' && ' (zero-polling)'}
+          {status === 'watching' && ' (interception with optional polling)'}
         </p>
       </div>
       <div id="new-way-vite" ref={containerRef} />

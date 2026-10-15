@@ -16,6 +16,7 @@ coverage/
 
 # Vitest
 __snapshots__/
+.vitest/
 
 # Playwright
 test-results/
@@ -52,6 +53,7 @@ Session.vim
 # Example apps
 examples/nextjs/.next/
 examples/nextjs/dist/
+examples/nextjs/out/
 examples/vite-react/dist/
 
 # E2E

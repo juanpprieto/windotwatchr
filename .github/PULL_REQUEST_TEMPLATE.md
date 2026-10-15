@@ -12,6 +12,7 @@
 
 ## Checklist
 
-- [ ] `pnpm check` passes (typecheck + lint + test)
+- [ ] `bun run check` passes (typecheck + lint + browser/server tests)
+- [ ] Packed consumers and production examples pass; required WebKit CI gate passes
 - [ ] Added/updated tests if applicable
-- [ ] Ran `pnpm changeset` if this is a user-facing change
+- [ ] Ran `bun run changeset` if this is a user-facing change
