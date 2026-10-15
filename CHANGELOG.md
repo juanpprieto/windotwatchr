@@ -33,6 +33,8 @@
   - Hooks update readiness predicates in place, reset on other option changes,
     clear values on observed readiness loss or detection errors, and become idle
     after abort. They use private lifecycle observers rather than global events.
+    Queued occurrences cannot overwrite newer observed state, and suspended
+    renders cannot change a live subscription's readiness predicate.
 
   **Detection and cleanup fixes**
   - Pre-registered descendants resolve when a root or middle namespace arrives
@@ -67,9 +69,8 @@
   - Ready and timeout events carry `id`; error detail declares `id?`. Root-wide
     warnings carry `{ path, reason }` without a subscription ID. Event details are
     typed on `WindowEventMap` from both public entries.
-  - Tooling uses Bun, Vite and Vitest with real browser tests. The dependency
-    inventory dated 2026-10-03 records React/React DOM 19.3.0 and the selected
-    stable tooling versions; minimum/current consumer checks remain release gates.
+  - Tooling uses Bun, Vite and Vitest with real browser tests and packed-package
+    checks for current and minimum supported consumers.
 
 ## 0.2.0
 

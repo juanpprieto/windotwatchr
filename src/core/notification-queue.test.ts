@@ -15,6 +15,7 @@ function makeSub(
     predicate: (v) => v !== null && v !== undefined,
     id: 'test-id',
     disposed: false,
+    delivery: 'all',
     hasObserved: false, observedValue: undefined, observedReady: false, detectionFailed: false, observers: {},
     dispose: () => {},
     ...overrides,

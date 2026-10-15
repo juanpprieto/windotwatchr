@@ -25,12 +25,15 @@ export interface Subscription {
   observedValue: unknown;
   observedReady: boolean;
   detectionFailed: boolean;
+  delivery: 'all' | 'latest';
   observers: WatcherObservers;
   dispose: DisposeFunction;
 }
 
 /** Registration-time options; correlation labels do not define internal identity. */
 export interface SubscribeOptions {
+  /** Hooks represent current state; imperative watchers retain every occurrence. */
+  delivery?: 'all' | 'latest';
   predicate?: (value: unknown) => boolean;
   id?: string;
   observers?: WatcherObservers;
@@ -52,13 +55,13 @@ export function reportDetectionError(sub: Subscription, path: string, error: unk
 }
 
 /**
- * Evaluate readiness in isolation, including immediately before delivery.
+ * Check readiness and report observed readiness loss or detection failure.
  * @param sub - Subscription whose predicate applies.
  * @param path - Watched path for error reporting.
  * @param value - Candidate value.
  * @returns True only when the active predicate succeeds.
  */
-export function isReady(sub: Subscription, path: string, value: unknown): boolean {
+export function checkReadiness(sub: Subscription, path: string, value: unknown): boolean {
   if (sub.disposed) {return false;}
   try {
     const ready = sub.predicate(value);
@@ -98,6 +101,7 @@ export class SubscriptionManager {
       id: options?.id ?? `ww_${++runtimeState.sequence}`, disposed: false,
       hasObserved: false, observedValue: undefined, observedReady: false,
       detectionFailed: false, observers: options?.observers ?? {}, dispose: () => {},
+      delivery: options?.delivery ?? 'all',
     };
     set.add(sub);
     this.addPrefixes(path);
@@ -123,7 +127,7 @@ export class SubscriptionManager {
     const previousReady = sub.observedReady;
     const identity = unwrapProxy(value);
     const changed = !sub.hasObserved || !Object.is(sub.observedValue, identity);
-    const ready = isReady(sub, path, value);
+    const ready = checkReadiness(sub, path, value);
     sub.hasObserved = true;
     sub.observedValue = identity;
     sub.observedReady = ready;

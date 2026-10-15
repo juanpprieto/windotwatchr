@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
 import React from 'react';
-import { resetRegistry } from '../core/windot-watcher.js';
+import { resetRegistry, watch } from '../core/windot-watcher.js';
 import { useWatchWindot } from './use-watch-windot.js';
 
 /** Typed access to windot properties on `window`. */
@@ -50,6 +50,76 @@ describe('useWatchWindot', () => {
     expect(result.current.status).toBe('ready');
     expect(result.current.value).toEqual({ loaded: true });
     expect(result.current.error).toBeNull();
+  });
+
+  it('keeps observed readiness loss after an earlier queued occurrence', async () => {
+    vi.useFakeTimers();
+    const callback = vi.fn();
+    watch(ROOT, callback, { pollInterval: 0 });
+    const { result } = renderHook(() => useWatchWindot(ROOT, { pollInterval: 10 }));
+
+    await act(async () => {
+      (window as unknown as WindotRecord)[ROOT] = 42;
+      (window as unknown as WindotRecord)[ROOT] = undefined;
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(30);
+    });
+
+    expect(callback).toHaveBeenCalledExactlyOnceWith(42);
+    expect(result.current).toEqual({ value: null, status: 'watching', error: null });
+  });
+
+  it('once waits for current readiness instead of consuming an obsolete occurrence', async () => {
+    const { result } = renderHook(() => useWatchWindot(ROOT, { once: true, pollInterval: 0 }));
+    await act(async () => {
+      (window as unknown as WindotRecord)[ROOT] = 42;
+      (window as unknown as WindotRecord)[ROOT] = undefined;
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe('watching');
+
+    await act(async () => {
+      (window as unknown as WindotRecord)[ROOT] = 43;
+      await Promise.resolve();
+    });
+    expect(result.current.value).toBe(43);
+    expect(result.current.status).toBe('ready');
+    expect(Object.getOwnPropertyDescriptor(window, ROOT)?.get).toBeUndefined();
+  });
+
+  it('honors readiness loss caused by a ready-event listener', async () => {
+    const { result } = renderHook(() => useWatchWindot(ROOT, { pollInterval: 0 }));
+    const globals = window as unknown as WindotRecord;
+    const invalidate = () => { globals[ROOT] = undefined; };
+    window.addEventListener('ww:ready', invalidate, { once: true });
+    try {
+      await act(async () => {
+        (window as unknown as WindotRecord)[ROOT] = 42;
+        await Promise.resolve();
+      });
+      expect(result.current).toEqual({ value: null, status: 'watching', error: null });
+    } finally { window.removeEventListener('ww:ready', invalidate); }
+  });
+
+  it('keeps the committed predicate while a changed predicate render is suspended', async () => {
+    const suspended = vi.fn();
+    const pending = new Promise<void>(() => {});
+    let changePredicate!: () => void;
+    const { result } = renderHook(() => {
+      const [accept, setAccept] = React.useState(true);
+      changePredicate = () => React.startTransition(() => setAccept(false));
+      const state = useWatchWindot(ROOT, { pollInterval: 0, ready: value => accept && value !== null && value !== undefined });
+      if (!accept) { suspended(); throw pending; }
+      return state;
+    }, { wrapper: ({ children }) => React.createElement(React.Suspense, { fallback: null }, children) });
+
+    await act(async () => { changePredicate(); });
+    expect(suspended).toHaveBeenCalled();
+    await act(async () => {
+      (window as unknown as WindotRecord)[ROOT] = 42;
+      await Promise.resolve();
+    });
+    expect(result.current).toEqual({ value: 42, status: 'ready', error: null });
   });
 
   it('transitions to timeout when ww:timeout fires', async () => {

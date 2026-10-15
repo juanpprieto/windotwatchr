@@ -105,7 +105,7 @@ function Checkout() {
 
 ### Nested Paths
 
-Dot-notation follows string property names, including inherited properties. The engine installs Proxy traps at each level and resolves the moment the leaf value is assigned:
+Dot-notation follows string property names, including inherited child properties. Use `strategy: 'poll'` when the root itself is inherited from Window's prototype. The engine intercepts watched assignments and delivers readiness in a microtask:
 
 ```ts
 watchWindot('acmePayments.ui.components', (components) => {
@@ -193,7 +193,7 @@ Import from `windotwatchr/react`. The optional peer range is React 16.8+. Packed
 
 `auto` and `proxy` can share a root. A `poll` registration conflicts with an interception registration on that root, in either order, and fails without disturbing the existing watcher. Enabled polling on a shared path uses the fastest live interval; a poll-disabled or proxy-only registration does not gain polling from a sibling.
 
-Changing hook timeout, interval, strategy, signal, retries, once, or correlation label replaces the registration and resets its state. Changing `ready` updates and rechecks the predicate in place, including inline functions. Recreating an options object with unchanged values does not restart detection.
+Changing hook timeout, interval, strategy, signal, retries, once, or correlation label replaces the registration and resets its state. Changing `ready` updates and rechecks the predicate after the render commits, including inline functions. Recreating an options object with unchanged values does not restart detection. Hooks represent the latest observed state: an older queued occurrence cannot restore a value after observed readiness loss. Imperative watchers still receive separate ready occurrences.
 
 ### Types
 
@@ -238,9 +238,9 @@ With enabled `auto`/`poll` checks, each watched path continues sampling until di
 
 The last disposal restores the latest raw root and original attributes/accessor behavior when interception still owns a configurable descriptor. An external replacement survives cleanup. If the SDK makes the installed accessor non-configurable, cleanup releases resources and makes it return raw data, but cannot remove that locked accessor. Previously handed-out proxies remain proxies; normal nested stores unwrap library proxies, except explicit locked descriptors whose Proxy invariants require the exact supplied identity.
 
-Sealed/frozen values, locked children, retained raw writes, closure changes and external predicate flags may require polling. Symbol keys and property names containing literal dots cannot be represented by this path API. Root deletion or replacement through `Object.defineProperty` needs enabled polling or a new registration. Inherited lookups remain supported. Root predicates involving unmonitored deeper objects need polling; watching the relevant leaf gives interception coverage.
+Sealed/frozen values, locked children, retained raw writes, closure changes and external predicate flags may require polling. Symbol keys and property names containing literal dots cannot be represented by this path API. Root deletion or replacement through `Object.defineProperty` needs enabled polling or a new registration. Inherited child lookups remain supported; inherited Window roots require `strategy: 'poll'`. Root predicates involving unmonitored deeper objects need polling; watching the relevant leaf gives interception coverage.
 
-Native objects, private-field classes and identity-sensitive SDK methods may fail behind a Proxy. Use `strategy: 'poll'` to preserve their raw receiver and identity. Core and React entries from the same built package share one ESM module graph. Different copies or versions on the same page do not negotiate shared ownership.
+Native objects, private-field classes and identity-sensitive SDK methods may fail behind a Proxy. Using a wrapped SDK object as a prototype can also change where derived writes land. Use `strategy: 'poll'` for these cases to preserve raw receivers and identity. Core and React entries from the same built package share one ESM module graph. Different copies or versions on the same page do not negotiate shared ownership.
 
 Observer-driven rechecks, background scheduling, cross-version ownership and automatic method binding remain future work. Resource/script events alone cannot establish readiness, and scheduling hints cannot guarantee background deadlines.
 
@@ -266,8 +266,6 @@ Install the pinned Bun version with `mise install`, then run:
 bun install --frozen-lockfile
 bun --bun run playwright install chromium firefox webkit
 bun run check
-bun run docs:check
-bun run check:versioning
 bun run build
 bun run test:consumers
 bun run build:examples

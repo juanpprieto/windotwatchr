@@ -1,6 +1,15 @@
 import type { Subscription } from './subscription-manager.js';
-import { isReady } from './subscription-manager.js';
+import { checkReadiness } from './subscription-manager.js';
 import { dispatchWatcherEvent } from './event-dispatcher.js';
+import { unwrapProxy } from './proxy-identity.js';
+
+function canDeliver(sub: Subscription, path: string, value: unknown): boolean {
+  if (sub.disposed) {return false;}
+  if (sub.delivery === 'latest' && (!sub.observedReady || !Object.is(sub.observedValue, unwrapProxy(value)))) {
+    return false;
+  }
+  return checkReadiness(sub, path, value);
+}
 
 /**
  * A single scheduled delivery: one value, to one subscription, tagged with
@@ -50,12 +59,9 @@ export function scheduleDeliveries(deliveries: Delivery[]): void {
   const snapshot = deliveries.slice();
   queueMicrotask(() => {
     for (const { sub, path, value } of snapshot) {
-      if (sub.disposed) {
-        continue;
-      }
-      if (!isReady(sub, path, value)) {continue;}
+      if (!canDeliver(sub, path, value)) {continue;}
       dispatchWatcherEvent('ww:ready', { path, value, id: sub.id });
-      if (!isReady(sub, path, value)) {continue;}
+      if (!canDeliver(sub, path, value)) {continue;}
       try {
         sub.callback(value);
       } catch (error) {

@@ -122,6 +122,8 @@ const evidence = {
   compiler: (await Bun.file(join(minimum ? consumer : repository, 'node_modules/typescript/package.json')).json()).version,
   react: (await Bun.file(join(modules, 'react/package.json')).json()).version, browsers, cases,
 };
-await Bun.write(resolve(repository, process.env.WINDOT_CONSUMER_REPORT ?? `fixtures/validation/${profile}-consumers.json`), JSON.stringify(evidence, null, 2) + '\n');
+if (process.env.WINDOT_CONSUMER_REPORT) {
+  await Bun.write(resolve(repository, process.env.WINDOT_CONSUMER_REPORT), JSON.stringify(evidence, null, 2) + '\n');
+}
 if (cases.some(result => !result.passed)) {throw new Error('Packed consumer checks failed');}
 process.stdout.write(`Verified packed ${artifact.name}@${artifact.version}; ${artifact.integrity}\n`);

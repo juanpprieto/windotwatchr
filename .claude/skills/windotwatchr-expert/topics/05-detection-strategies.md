@@ -14,4 +14,4 @@ Root/middle assignments resolve registered descendants. Child writes reconsider 
 
 Raw references, closure-backed getters, external predicate dependencies, sealed/frozen values and externally replaced/deleted root traps may require enabled snapshots. Pure poll cannot detect an assignment with polling disabled after its initial sample. Root predicates depending on unmonitored deeper objects need polling; watch the relevant leaf for interception.
 
-String dot paths preserve inherited lookup but cannot represent symbol keys or literal dots in property names. Native/internal-slot/private-field methods can fail with proxied receivers; use poll. Different package builds/versions lack negotiated ownership. Background throttling delays timer checks and deadlines.
+String dot paths preserve inherited child lookup but cannot represent symbol keys or literal dots in property names. Inherited Window roots require pure polling. Native/internal-slot/private-field methods can fail with proxied receivers; use poll. Different package builds/versions lack negotiated ownership. Background throttling delays timer checks and deadlines.

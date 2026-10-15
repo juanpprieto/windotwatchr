@@ -6,7 +6,7 @@ import type { ProxyWrapper } from './proxy-wrapper.js';
 import { installTrap } from './property-trap.js';
 import type { TrapDispose } from './property-trap.js';
 import { SubscriptionManager } from './subscription-manager.js';
-import type { Subscription, WatcherObservers } from './subscription-manager.js';
+import type { SubscribeOptions, Subscription, WatcherObservers } from './subscription-manager.js';
 import { validateOptions } from './options.js';
 import { resolvePath } from './resolve-path.js';
 import { runtimeState } from './runtime-state.js';
@@ -71,7 +71,7 @@ function reconcilePoll(path: string, watcher: RootWatcher, poll: SharedPoll): vo
  * @returns Idempotent cleanup function.
  * @example const dispose = watch('SDK.api', callback, { once: true });
  */
-export function watch(path: string, callback: SubscriberCallback, options: WatchWindotOptions = {}, observers: WatcherObservers = {}): DisposeFunction {
+export function watch(path: string, callback: SubscriberCallback, options: WatchWindotOptions & Pick<SubscribeOptions, 'delivery'> = {}, observers: WatcherObservers = {}): DisposeFunction {
   validateOptions(options);
   if (options.signal?.aborted) { observers.abort?.(); return () => {}; }
   const rootKey = path.split('.')[0]!;
@@ -122,7 +122,12 @@ export function watch(path: string, callback: SubscriberCallback, options: Watch
       clearDeadline();
       try { callback(value); }
       finally { if (options.once) {dispose();} }
-    }, { ...(options.ready ? { predicate: options.ready } : {}), ...(options.correlationId !== undefined ? { id: options.correlationId } : {}), observers });
+    }, {
+      ...(options.ready ? { predicate: options.ready } : {}),
+      ...(options.correlationId !== undefined ? { id: options.correlationId } : {}),
+      delivery: options.delivery ?? 'all',
+      observers,
+    });
     owner.subManager.sample(path, [sub]);
     observers.refresh?.(() => { if (!disposed) {owner.subManager.sample(path, [sub!]);} });
     const interval = options.pollInterval ?? DEFAULT_POLL_INTERVAL;

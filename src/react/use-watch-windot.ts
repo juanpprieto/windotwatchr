@@ -76,8 +76,10 @@ export function useWatchWindot<T = unknown>(
   const [error, setError] = useState<Error | null>(null);
   const optionsRef = useRef(options);
   const refreshRef = useRef<(() => void) | undefined>(undefined);
-  optionsRef.current = options;
   const { timeout, pollInterval, strategy, signal, retries, ready, once, correlationId } = options ?? {};
+
+  // Suspended renders must not change a live registration's predicate.
+  useEffect(() => { optionsRef.current = options; }, [options]);
 
   useEffect(() => {
     let active = true;
@@ -92,7 +94,7 @@ export function useWatchWindot<T = unknown>(
         setValue(() => val as T);
         setStatus('ready');
         setError(null);
-      }, { ...optionsRef.current, ready: candidate => (optionsRef.current?.ready ?? defaultReadyPredicate)(candidate) }, {
+      }, { ...optionsRef.current, delivery: 'latest', ready: candidate => (optionsRef.current?.ready ?? defaultReadyPredicate)(candidate) }, {
         refresh: sample => { refreshRef.current = sample; },
         notReady: () => { if (active) { setValue(null); setStatus('watching'); setError(null); } },
         abort: () => { if (active) { setValue(null); setStatus('idle'); setError(null); } },
