@@ -67,7 +67,8 @@ run it again with that checkbox cleared. Merging or pushing a tag never publishe
 The workflow uses Node 24, npm 12.2.0 and Bun, with OIDC instead of an npm token.
 It requires successful CI for the selected commit, builds on a GitHub-hosted
 runner, checks a packed consumer, and publishes that same archive with provenance.
-After upload it compares registry integrity and checks provenance metadata.
+After upload it allows five minutes for registry processing, compares archive
+integrity and checks provenance metadata.
 A dry run validates packaging but cannot verify OIDC authentication or create an
 attestation. If post-upload verification fails, inspect the published version
 before retrying; an uploaded npm version cannot be overwritten.
