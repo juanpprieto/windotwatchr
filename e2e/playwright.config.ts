@@ -9,33 +9,25 @@ export default defineConfig({
   reporter: 'html',
   use: {
     trace: 'on-first-retry',
+    launchOptions: { env: { ...process.env, LC_ALL: 'C', LANG: 'C' } },
   },
-  webServer: [
-    {
-      command: 'pnpm --filter nextjs-showcase dev',
-      url: 'http://localhost:3000/windotwatchr/nextjs/',
-      reuseExistingServer: !process.env.CI,
-      cwd: '..',
-      timeout: 30_000,
-    },
-    {
-      command: 'pnpm --filter vite-react-showcase dev',
-      url: 'http://localhost:5173/windotwatchr/vite-react/',
-      reuseExistingServer: !process.env.CI,
-      cwd: '..',
-      timeout: 30_000,
-    },
-  ],
+  webServer: {
+    command: 'bun scripts/serve-examples.ts',
+    url: 'http://127.0.0.1:4173/windotwatchr/nextjs/',
+    reuseExistingServer: false,
+    cwd: '..',
+    timeout: 30_000,
+  },
   projects: [
     {
       name: 'nextjs',
       testDir: './tests/nextjs',
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:3000/windotwatchr/nextjs/' },
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:4173/windotwatchr/nextjs/' },
     },
     {
       name: 'vite-react',
       testDir: './tests/vite-react',
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173/windotwatchr/vite-react/' },
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:4173/windotwatchr/vite-react/' },
     },
   ],
 });

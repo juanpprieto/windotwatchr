@@ -1,29 +1,70 @@
-# Commerce Patterns & Gotchas
+# SDK integration patterns
 
-## Real-World Use Cases
+These examples use fictional SDKs. Load their scripts separately. For a real
+integration, use the vendor's documented readiness callback or promise when
+available and verify its API types and cleanup methods.
 
-### Payment SDK (Stripe-like)
+## Payment widget
 
-Third-party payment scripts typically assign `window.Stripe` or `window.PaymentSDK` after an async script load.
+Wait for the API you will call, check its shape, and return cleanup to the owner
+of the widget. The type parameter alone does not validate the runtime value.
 
 ```ts
-// Imperative — wait for Stripe with timeout
-try {
-  const stripe = await waitForWindot<Stripe>('Stripe', {
-    timeout: 10_000,
-    retries: 3,
-  });
-  const result = await stripe.redirectToCheckout({ sessionId });
-} catch (err) {
-  showManualPaymentForm();
+import { waitForWindot } from 'windotwatchr';
+
+interface PaymentComponents {
+  create(
+    kind: 'promo',
+    options: { amount: number; pageType: 'product' },
+  ): { render(selector: string): void; destroy(): void };
+}
+
+function isPaymentComponents(value: unknown): value is PaymentComponents {
+  return typeof value === 'object' && value !== null &&
+    'create' in value && typeof value.create === 'function';
+}
+
+export async function mountPromo(
+  selector: string,
+  amount: number,
+  signal: AbortSignal,
+): Promise<() => void> {
+  const components = await waitForWindot<PaymentComponents>(
+    'acmePayments.ui.components',
+    { timeout: 10_000, signal, ready: isPaymentComponents },
+  );
+  if (signal.aborted) throw signal.reason;
+  const promo = components.create('promo', { amount, pageType: 'product' });
+  promo.render(selector);
+  return () => promo.destroy();
 }
 ```
 
+Abort the pending wait if the page leaves, handle its rejection, and call the
+returned cleanup when the mounted widget is no longer needed.
+
+For React, the hook owns detection while the effect owns the widget:
+
 ```tsx
-// React — BNPL promo component
-function BNPLPromo({ amount }: { amount: number }) {
-  const { value: components, status } = useWatchWindot<PaymentComponents>(
-    'acmePayments.ui.components', // Deep nested path
+import { useEffect } from 'react';
+import { useWatchWindot } from 'windotwatchr/react';
+
+interface PaymentComponents {
+  create(
+    kind: 'promo',
+    options: { amount: number; pageType: 'product' },
+  ): { render(selector: string): void; destroy(): void };
+}
+
+function isPaymentComponents(value: unknown): value is PaymentComponents {
+  return typeof value === 'object' && value !== null &&
+    'create' in value && typeof value.create === 'function';
+}
+
+export function BNPLPromo({ amount }: { amount: number }) {
+  const { value: components, status, error } = useWatchWindot<PaymentComponents>(
+    'acmePayments.ui.components',
+    { timeout: 10_000, ready: isPaymentComponents },
   );
 
   useEffect(() => {
@@ -35,235 +76,188 @@ function BNPLPromo({ amount }: { amount: number }) {
 
   return (
     <>
-      {status === 'watching' && <Skeleton />}
+      <p>{error?.message ?? status}</p>
       <div id="bnpl-container" />
     </>
   );
 }
 ```
 
-### Maps SDK (Google Maps-like)
+This example assumes one promo container on the page. Multiple widgets need
+distinct mount targets.
 
-Maps SDKs expose constructors as nested properties: `window.google.maps.Map`.
+For Stripe specifically, the global `Stripe` is a factory that needs a
+publishable key to create an instance. `redirectToCheckout` is no longer
+supported. See [Stripe initialization](https://docs.stripe.com/js/initializing)
+and the [Checkout migration](https://docs.stripe.com/changelog/clover/2025-09-30/remove-redirect-to-checkout);
+do not treat the fictional widget API above as a Stripe integration.
+
+## Maps constructor readiness
+
+The mock SDK exposes `acme.maps` before `acme.maps.Map`. Watching the namespace
+with the default predicate can resolve too early for a constructor call.
 
 ```ts
-const maps = await waitForWindot<typeof google.maps>('google.maps', {
-  timeout: 5_000,
-});
-const map = new maps.Map(element, { center: { lat: 40, lng: -74 }, zoom: 12 });
-```
+import { waitForWindot } from 'windotwatchr';
 
-```tsx
-// React pattern
-function MapView() {
-  const { value: maps, status } = useWatchWindot<typeof google.maps>('google.maps');
-  const mapRef = useRef<HTMLDivElement>(null);
+interface MapInstance {
+  render(): MapInstance;
+  destroy(): void;
+}
 
-  useEffect(() => {
-    if (!maps || !mapRef.current) return;
-    new maps.Map(mapRef.current, { center: { lat: 40, lng: -74 }, zoom: 12 });
-  }, [maps]);
+type MapConstructor = new (
+  element: HTMLElement,
+  options: { center: { lat: number; lng: number }; zoom: number },
+) => MapInstance;
 
-  if (status === 'watching') return <div>Loading map...</div>;
-  return <div ref={mapRef} style={{ height: 400 }} />;
+export async function mountMap(
+  element: HTMLElement,
+  signal: AbortSignal,
+): Promise<() => void> {
+  const Map = await waitForWindot<MapConstructor>('acme.maps.Map', {
+    timeout: 5_000,
+    signal,
+    ready: candidate => typeof candidate === 'function',
+  });
+  if (signal.aborted) throw signal.reason;
+  const map = new Map(element, { center: { lat: 40, lng: -74 }, zoom: 12 });
+  map.render();
+  return () => map.destroy();
 }
 ```
 
-### Analytics / Tracking Pixel
+The function check matches this mock's loading stages. It does not establish
+that an arbitrary vendor function is a constructor. For a React effect with
+pending-wait cancellation and map cleanup, use the
+[SSR-safe map example](./07-ssr-safety.md#a-cancellable-wait-in-an-effect).
 
-Analytics SDKs often create a stub (array or function) immediately, then replace it with the full SDK later.
+## Analytics stubs
+
+An existing object, array or queue function may still be a stub. Require the API
+shape you intend to use; an SDK with its own initialization flag may need an
+additional check.
 
 ```tsx
-// Watch for the real SDK, not the stub
-const { value, status } = useWatchWindot('analytics', {
-  ready: (v) =>
-    typeof v === 'object' &&
-    v !== null &&
-    typeof (v as any).track === 'function' &&
-    !(v instanceof Array), // Exclude the stub array
-});
+import { useWatchWindot } from 'windotwatchr/react';
+
+interface Analytics {
+  track(event: string): void;
+}
+
+function isAnalytics(value: unknown): value is Analytics {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) &&
+    'track' in value && typeof value.track === 'function';
+}
+
+export function AnalyticsStatus() {
+  const { status, error } = useWatchWindot<Analytics>('analytics', {
+    ready: isAnalytics,
+    timeout: 5_000,
+  });
+  return <p>{error?.message ?? status}</p>;
+}
 ```
 
-### Multi-SDK Dashboard
+## Multi-SDK dashboard
+
+Give configurations an explicit shared type so optional predicates are available
+when mapping over entries.
 
 ```tsx
-const sdkConfigs = [
-  { name: 'Analytics', path: 'dataLayer' },
-  { name: 'Pixel', path: 'acmePx.loaded', ready: (v: unknown) => v === true },
-  { name: 'Payments', path: 'acmePayments.ui.components' },
-  { name: 'Maps', path: 'acme.maps.Map' },
-] as const;
+import { useWatchWindot } from 'windotwatchr/react';
 
-function Dashboard() {
+interface SDKConfig {
+  name: string;
+  path: string;
+  ready?: (value: unknown) => boolean;
+}
+
+const sdkConfigs: readonly SDKConfig[] = [
+  { name: 'Analytics queue', path: 'acmeDataLayer', ready: Array.isArray },
+  { name: 'Pixel loaded', path: 'acmePx.loaded', ready: value => value === true },
+  {
+    name: 'Payments',
+    path: 'acmePayments.ui.components.create',
+    ready: value => typeof value === 'function',
+  },
+  { name: 'Maps', path: 'acme.maps.Map', ready: value => typeof value === 'function' },
+];
+
+export function Dashboard() {
   return (
     <div>
-      {sdkConfigs.map(({ name, path, ready }) => (
-        <SDKStatus key={path} name={name} path={path} ready={ready} />
-      ))}
+      {sdkConfigs.map(config => <SDKStatus key={config.path} {...config} />)}
     </div>
   );
 }
 
-function SDKStatus({ name, path, ready }: { name: string; path: string; ready?: (v: unknown) => boolean }) {
-  const { value, status } = useWatchWindot(path, { ready });
+function SDKStatus({ name, path, ready }: SDKConfig) {
+  const { value, status, error } = useWatchWindot<unknown>(path, ready ? { ready } : undefined);
   return (
-    <div>
-      <strong>{name}</strong>: {status}
+    <p>
+      <strong>{name}</strong>: {error?.message ?? status}
       {value != null && <span> (type: {typeof value})</span>}
-    </div>
+    </p>
   );
 }
 ```
 
-### Script Injection Pattern
+The analytics card establishes that a queue exists; it does not prove that
+remote analytics initialization or event delivery has completed.
 
-```tsx
-useEffect(() => {
-  const src = '/scripts/vendor-sdk.js';
-  if (document.querySelector(`script[src="${src}"]`)) return;
+## Script ownership
 
-  const script = document.createElement('script');
-  script.src = src;
-  script.async = true;
-  document.head.appendChild(script);
-}, []);
+A script's load event follows loading and script execution, but asynchronous SDK
+initialization can continue afterward. Handle script errors in the loader and
+API readiness in the watcher. A framework loader or shared loader should own the
+script lifetime; the watcher does not load or remove scripts.
 
-// Separate hook watches for the global:
-const { value: sdk, status } = useWatchWindot('VendorSDK');
+## Detection and cleanup choices
+
+- Release persistent watches on navigation or component cleanup. A timeout
+  reports missed readiness; it does not dispose a persistent watcher or hook.
+- Give waits a timeout or abort signal when readiness may never arrive. Handle
+  rejection as `unknown`: abort reasons need not be Errors.
+- Destructuring reads the current property through its getter or Proxy. It does
+  not inherently strip a proxy, but the captured reference does not track later
+  property replacement. Watch the required leaf for readiness changes.
+- Reusing an unchanged options object is allowed; the library does not mutate
+  it. Do not mutate options after registration to reconfigure an imperative
+  watch. Replace that registration explicitly. The hook handles scalar option
+  changes and predicate updates as described in the React topic.
+- Default `auto` detection uses interception plus 100ms snapshots until disposal.
+  Adjust the interval for the detection latency and timer cost your application
+  can accept. Raw writes, closure getters, external flags and locked shapes may
+  need snapshots even when the SDK is not frozen.
+- `proxy` disables detection polling. `poll` preserves raw SDK identity.
+  Poll/interception registrations cannot share the same root.
+- Callbacks run in a microtask. Use a promise or hook state when you need a value
+  after readiness; a variable assigned in the callback is not updated before
+  the registration call returns.
+- Warning events identify particular interception limitations. Their absence
+  does not prove coverage; match the SDK's mutation route to the strategy.
+
+## Diagnostics with cleanup
+
+Install listeners only for the lifetime of the diagnostic view:
+
+```ts
+import 'windotwatchr';
+
+export function observeWarnings(): () => void {
+  const onWarning = (event: WindowEventMap['ww:warning']) => {
+    console.warn('windotwatchr interception:', event.detail);
+  };
+  window.addEventListener('ww:warning', onWarning);
+  return () => window.removeEventListener('ww:warning', onWarning);
+}
 ```
-
----
-
-## DOs and DONTs
-
-### DO
-
-- **Always call `dispose()`** — memory leak if left hanging
-  ```ts
-  useEffect(() => {
-    const dispose = watchWindot('SDK', cb);
-    return () => dispose(); // Always clean up
-  }, []);
-  ```
-
-- **Set `timeout` explicitly** when the SDK might not load
-  ```ts
-  waitForWindot('Stripe', { timeout: 10_000 });
-  // Without timeout, Promise hangs forever if script fails to load
-  ```
-
-- **Use generic type parameter** for full TypeScript safety
-  ```ts
-  const { value } = useWatchWindot<Stripe>('Stripe');
-  // value is Stripe | null, not unknown
-  ```
-
-- **Use custom `ready` predicate** when SDK creates stubs
-  ```ts
-  // SDK sets window.analytics = [] immediately, then replaces with full object
-  watchWindot('analytics', cb, {
-    ready: (v) => typeof v === 'object' && !(v instanceof Array),
-  });
-  ```
-
-- **Use AbortController for route-change cleanup**
-  ```ts
-  const ctrl = new AbortController();
-  waitForWindot('SDK', { signal: ctrl.signal });
-  // On route change: ctrl.abort();
-  ```
-
-- **Listen to `ww:warning` in development** to detect fallback scenarios
-  ```ts
-  if (process.env.NODE_ENV === 'development') {
-    window.addEventListener('ww:warning', (e: CustomEvent) => {
-      console.warn('windotwatchr fallback:', e.detail);
-    });
-  }
-  ```
-
-### DON'T
-
-- **Don't destructure the Proxy result** if you need reactive sub-paths
-  ```ts
-  // BAD — destructuring breaks Proxy interception:
-  watchWindot('Stripe', (stripe) => {
-    const { checkout } = stripe; // checkout is a plain object, NOT proxied
-  });
-
-  // GOOD — watch the specific sub-path:
-  watchWindot('Stripe.checkout', (checkout) => {
-    // checkout notification comes from Proxy trap
-  });
-  ```
-
-- **Don't use `waitForWindot` without timeout in browser** if the SDK might fail
-  ```ts
-  // BAD — hangs forever if script fails:
-  const stripe = await waitForWindot('Stripe');
-
-  // GOOD:
-  const stripe = await waitForWindot('Stripe', { timeout: 10_000 });
-  ```
-
-- **Don't share mutable options objects between watchers**
-  ```ts
-  // BAD — internal mutation could affect both:
-  const opts = { timeout: 5_000 };
-  watchWindot('A', cbA, opts);
-  watchWindot('B', cbB, opts); // May see mutated state
-
-  // GOOD — spread or create fresh:
-  watchWindot('A', cbA, { ...opts });
-  watchWindot('B', cbB, { ...opts });
-  ```
-
-- **Don't expect synchronous callbacks** — always microtask-deferred
-  ```ts
-  // BAD — value is NOT available synchronously:
-  let result;
-  watchWindot('SDK', (v) => { result = v; });
-  console.log(result); // undefined! Callback hasn't fired yet
-
-  // GOOD — use Promise or React state:
-  const sdk = await waitForWindot('SDK');
-  ```
-
-- **Don't poll when you don't need to** — zero-polling is the default
-  ```ts
-  // Unnecessary — Proxy handles this:
-  watchWindot('SDK', cb, { pollInterval: 50 }); // Over-polling
-
-  // Only set pollInterval for known frozen/sealed SDKs:
-  watchWindot('FrozenSDK', cb, { pollInterval: 200 });
-  ```
-
-- **Don't assume `timeout` has a default** — it doesn't
-  ```ts
-  // No timeout → no ww:timeout event, no Promise rejection
-  watchWindot('SDK', cb); // Watches indefinitely
-  waitForWindot('SDK');   // Hangs indefinitely (in browser)
-  ```
-
-- **Don't watch inside loops without tracking disposers**
-  ```ts
-  // BAD — leaked watchers:
-  for (const path of paths) {
-    watchWindot(path, cb);
-  }
-
-  // GOOD:
-  const disposers = paths.map((path) => watchWindot(path, cb));
-  // Cleanup: disposers.forEach((d) => d());
-  ```
-
-## Debugging Checklist
 
 | Symptom | Check |
-|---------|-------|
-| Value never resolves | Is the script tag actually loading? (Network tab). Does value pass `ready` predicate? Is it frozen? (listen for `ww:warning`) |
-| Callback fires twice | Are you passing `receiver` to `Reflect.set`? (contributors only). Is the SDK reassigning the global? (legitimate double fire) |
-| Timeout fires but value exists | Does the value pass your `ready` predicate? Test it: `console.log(myPredicate(window.SDK))` |
-| Memory leak after unmount | Did you call `dispose()`? Are CustomEvent listeners cleaned up? |
-| SSR hydration mismatch | Render same initial state on server and client. Use `useEffect` gates for client-only rendering. |
-| Hook status stuck on 'watching' | Is the path correct? (case-sensitive). Is there a typo? Check `window.SDK` in console. |
+|---|---|
+| Value never resolves | Path, predicate, script errors and whether the strategy observes the SDK's mutation route |
+| Callback repeats | Separate intercepted assignments, observed readiness transitions or multiple registrations |
+| Timeout while a value exists | Whether that value satisfies the predicate; namespace existence may precede usable methods |
+| Resources remain after unmount | Watch disposers, SDK widget cleanup and diagnostic listener removal |
+| Hydration mismatch | Server and initial client markup; move browser-dependent rendering behind an effect |
+| Hook stays watching | Path spelling, predicate result, detection errors and polling disabled for a raw/closure change |

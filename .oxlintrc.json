@@ -14,6 +14,8 @@
     "unicorn/prefer-global-this": "off",
     "unicorn/no-null": "off",
     "no-duplicate-imports": "off",
+    "no-underscore-dangle": "off",
+    "vitest/require-mock-type-parameters": "off",
     "promise/avoid-new": "off",
     "promise/prefer-await-to-callbacks": "off"
   }

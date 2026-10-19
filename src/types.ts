@@ -14,10 +14,10 @@
  * ```
  */
 export interface WatchWindotOptions {
-  /** Timeout in ms. No default — consumer must set explicitly. */
+  /** Initial deadline in ms; zero disables. Finite 0..2147483647, fractions round up. */
   timeout?: number;
 
-  /** Polling fallback interval in ms. Default: 100. Set to 0 to disable. */
+  /** Persistent snapshot interval in ms. Default: 100; zero disables detection polling. */
   pollInterval?: number;
 
   /** Detection strategy. Default: 'auto'. */
@@ -26,11 +26,30 @@ export interface WatchWindotOptions {
   /** AbortSignal to tie watcher lifecycle to an AbortController. */
   signal?: AbortSignal;
 
-  /** Number of retry attempts after timeout. Default: 0 (no retry). */
+  /** Extra deadline checks; integer 0..2147483647. Persistent detection outlives retries. */
   retries?: number;
 
-  /** Readiness predicate. Default: (value) => value != null. */
+  /** Synchronous, side-effect-free readiness predicate. Default: value != null. */
   ready?: (value: unknown) => boolean;
+
+  /**
+   * Auto-dispose the watcher after its first resolution.
+   *
+   * When `true`, the callback fires at most once and the underlying
+   * subscription, timers, and poll fallbacks are torn down immediately
+   * after delivery. Default: `false` (re-fires on root reassignment).
+   */
+  once?: boolean;
+
+  /**
+   * Public label on this registration's ready, timeout and error events.
+   *
+   * Lets multiple watchers on the same path be told apart by listeners —
+   * `event.detail.id` echoes this value. Auto-generated when omitted.
+   * Labels can repeat; internal registration identity and hook isolation are
+   * independent of this label. Root-wide warnings do not carry one.
+   */
+  correlationId?: string;
 }
 
 /** Cleanup function returned by windotwatchr watchers. */
@@ -48,3 +67,10 @@ export const defaultReadyPredicate = (value: unknown): boolean =>
 
 /** Default polling interval in ms. */
 export const DEFAULT_POLL_INTERVAL = 100;
+
+/** The optional disposal protocol is declared here for ordinary strict consumers. */
+declare global {
+  interface SymbolConstructor {
+    readonly dispose: unique symbol;
+  }
+}

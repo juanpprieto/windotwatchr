@@ -3,8 +3,9 @@
 
 # Release-critical files require explicit owner review
 package.json @juanpprieto
-pnpm-lock.yaml @juanpprieto
-tsup.config.ts @juanpprieto
+bun.lock @juanpprieto
+vite.config.ts @juanpprieto
+scripts/ @juanpprieto
 tsconfig.json @juanpprieto
 .changeset/ @juanpprieto
 .github/ @juanpprieto

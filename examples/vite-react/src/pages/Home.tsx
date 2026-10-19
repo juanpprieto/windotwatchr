@@ -3,7 +3,7 @@ export function Home() {
     <main>
       <h1 style={{ color: '#cba6f7' }}>windotwatchr showcase</h1>
       <p style={{ color: '#bac2de' }}>
-        Real browser E2E demos for windotwatchr — zero-polling window.*
+        Real browser E2E demos for windotwatchr — interception with optional polling window.*
         property detection.
       </p>
       <nav>

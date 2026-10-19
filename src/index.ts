@@ -1,8 +1,7 @@
 import type { DisposeFunction, SubscriberCallback, WatchWindotOptions } from './types.js';
-import { DEFAULT_POLL_INTERVAL, defaultReadyPredicate } from './types.js';
-import { dispatchWatcherEvent } from './core/event-dispatcher.js';
 import { watch } from './core/windot-watcher.js';
-import { resolvePath } from './core/poll-fallback.js';
+import { validateOptions } from './core/options.js';
+import { runtimeState } from './core/runtime-state.js';
 
 export type {
   DisposeFunction,
@@ -10,6 +9,29 @@ export type {
   WatcherState,
   WatchWindotOptions,
 } from './types.js';
+export type {
+  WwReadyDetail,
+  WwTimeoutDetail,
+  WwErrorDetail,
+  WwWarningDetail,
+} from './events.js';
+
+/**
+ * Dispose function that also implements the Explicit Resource Management
+ * protocol, so it works with `using`:
+ *
+ * ```ts
+ * // Keep this async scope open until the callback signals readiness.
+ * let signalReady!: () => void;
+ * const ready = new Promise<void>(resolve => { signalReady = resolve; });
+ * using watcher = watchWindot('SDK', () => signalReady());
+ * await ready;
+ * // Disposed when the enclosing scope exits.
+ * ```
+ *
+ * Calling it directly (`watcher()`) still works for non-`using` callers.
+ */
+export type DisposableWatcher = DisposeFunction & { [Symbol.dispose](): void };
 
 /**
  * Whether the current environment has a `window` global.
@@ -17,16 +39,65 @@ export type {
  */
 const isBrowser = typeof window !== 'undefined';
 
+/**
+ * Attach the `[Symbol.dispose]` protocol to a dispose function so it can be
+ * used with `using`. Guarded for runtimes without `Symbol.dispose`.
+ *
+ * @param dispose - The plain dispose function.
+ * @returns The same function with the disposal protocol when the runtime supports it.
+ */
+function asDisposable(dispose: DisposeFunction): DisposableWatcher {
+  const d = dispose as DisposableWatcher;
+  if (typeof Symbol !== 'undefined' && Symbol.dispose) {
+    d[Symbol.dispose] = () => { dispose(); };
+  }
+  return d;
+}
+
 /** No-op dispose function returned in non-browser environments. */
-const noop: DisposeFunction = () => {};
+const noop: DisposableWatcher = asDisposable(() => {});
+
+/**
+ * Build the rejection error for a `waitForWindot` timeout.
+ *
+ * Uses a `DOMException` with name `"TimeoutError"` to align with
+ * `AbortSignal.timeout()` conventions where available; falls back to a
+ * plain `Error` in older runtimes.
+ *
+ * @param path - The watched path.
+ * @param timeout - The elapsed timeout in ms.
+ * @returns The error to reject with.
+ */
+function makeTimeoutError(path: string, timeout: number): Error {
+  const message = `windotwatchr: timeout after ${timeout}ms waiting for "${path}"`;
+  if (typeof DOMException === 'function') {
+    return new DOMException(message, 'TimeoutError');
+  }
+  return Object.assign(new Error(message), { name: 'TimeoutError' });
+}
+
+/**
+ * Build the rejection error for a `waitForWindot` abort with no explicit
+ * `signal.reason`. Mirrors the `DOMException` `AbortError` that
+ * `AbortController.abort()` produces by default.
+ *
+ * @returns The error to reject with.
+ */
+function makeAbortError(): Error {
+  if (typeof DOMException === 'function') {
+    return new DOMException('windotwatchr: aborted', 'AbortError');
+  }
+  return Object.assign(new Error('windotwatchr: aborted'), { name: 'AbortError' });
+}
 
 /**
  * Watch a `window` property path for a value to appear.
  *
  * Installs an `Object.defineProperty` trap on `window` for the root key
  * and wraps assigned objects in an ES6 `Proxy` to intercept nested
- * property assignments. Callback fires on the exact tick the value
- * passes the readiness predicate.
+ * property assignments. Enabled auto/poll checks also sample snapshots.
+ * Callback runs in a microtask after readiness is checked, with another
+ * check after ready-event listener reentrancy.
  *
  * In non-browser environments (Node.js, Cloudflare Workers, Vercel Edge),
  * returns a no-op dispose function immediately. The callback is never invoked.
@@ -41,8 +112,10 @@ const noop: DisposeFunction = () => {};
  * ```ts
  * import { watchWindot } from 'windotwatchr';
  *
- * const dispose = watchWindot<StripeCheckout>('Stripe.checkout', (checkout) => {
- *   checkout.redirectToCheckout({ sessionId: '...' });
+ * const dispose = watchWindot<() => void>('acmeSDK.initialize', (initialize) => {
+ *   initialize();
+ * }, {
+ *   ready: candidate => typeof candidate === 'function',
  * });
  *
  * // Cleanup:
@@ -78,11 +151,11 @@ export function watchWindot<T = unknown>(
   path: string,
   callback: SubscriberCallback<T>,
   options?: WatchWindotOptions,
-): DisposeFunction {
+): DisposableWatcher {
   if (!isBrowser) {
     return noop;
   }
-  return watch(path, callback as SubscriberCallback, options);
+  return asDisposable(watch(path, callback as SubscriberCallback, options));
 }
 
 /**
@@ -91,9 +164,9 @@ export function watchWindot<T = unknown>(
  * Resolves when the value at `path` passes the readiness predicate.
  * Automatically disposes the internal watcher on resolution.
  *
- * When `options.timeout` is set, rejects with a descriptive `Error`
- * after the timeout expires (plus any retries). When `options.signal`
- * is set, rejects with `"windotwatchr: aborted"` on abort.
+ * Rejects with a TimeoutError DOMException (Error fallback) after timeout
+ * and retries. Abort rejects with the exact signal.reason, including null.
+ * Cancellable manual timers preserve fractional input and cleanup semantics.
  *
  * In non-browser environments (Node.js, Cloudflare Workers, Vercel Edge),
  * rejects immediately with an `Error`. This prevents silent hangs from
@@ -109,14 +182,17 @@ export function watchWindot<T = unknown>(
  * ```ts
  * import { waitForWindot } from 'windotwatchr';
  *
- * const maps = await waitForWindot<typeof google.maps>('google.maps');
- * const map = new maps.Map(element, { center, zoom: 12 });
+ * const initialize = await waitForWindot<() => void>('acmeSDK.initialize', {
+ *   timeout: 5_000,
+ *   ready: candidate => typeof candidate === 'function',
+ * });
+ * initialize();
  * ```
  *
  * @example
  * ```ts
- * // With timeout — rejects if Stripe doesn't load within 10 seconds:
- * const stripe = await waitForWindot<Stripe>('Stripe', {
+ * // Initial deadline, followed by three extra checks before final rejection:
+ * const sdk = await waitForWindot('SDK', {
  *   timeout: 10_000,
  *   retries: 3,
  * });
@@ -127,7 +203,7 @@ export function watchWindot<T = unknown>(
  * // With AbortSignal — rejects on abort:
  * const ctrl = new AbortController();
  * const stripe = waitForWindot<Stripe>('Stripe', { signal: ctrl.signal });
- * ctrl.abort(); // rejects with "windotwatchr: aborted"
+ * ctrl.abort(); // rejects with signal.reason
  * ```
  */
 export function waitForWindot<T = unknown>(
@@ -140,97 +216,40 @@ export function waitForWindot<T = unknown>(
     );
   }
 
-  const timeout = options?.timeout;
-  const retries = options?.retries ?? 0;
-  const signal = options?.signal;
-
   return new Promise<T>((resolve, reject) => {
     let settled = false;
-
-    // Strip timeout/retries/signal from options passed to watch() —
-    // waitForWindot handles its own timeout/retry to control the Promise.
-    const { timeout: _t, retries: _r, signal: _s, ...watchOptions } = options ?? {};
-
-    /** Clean up abort listener when settling via any path. */
+    let dispose: DisposeFunction | undefined;
+    const signal = options?.signal;
+    const abortReason = (): unknown => signal && 'reason' in signal ? signal.reason : makeAbortError();
     const cleanup = (): void => {
-      if (signal && onAbort) {
-        signal.removeEventListener('abort', onAbort);
-      }
+      signal?.removeEventListener('abort', onAbort);
+      dispose?.();
     };
-
-    const dispose = watch(
-      path,
-      (value) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        if (timeoutId) { clearTimeout(timeoutId); }
-        cleanup();
-        dispose();
-        resolve(value as T);
-      },
-      watchOptions,
-    );
-
-    // --- Timeout + Retry ---
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    if (timeout !== undefined && timeout > 0) {
-      const pollInterval = options?.pollInterval ?? DEFAULT_POLL_INTERVAL;
-      const predicate = options?.ready ?? defaultReadyPredicate;
-      let retryCount = 0;
-
-      const onTimeout = (): void => {
-        if (settled) {
-          return;
-        }
-
-        dispatchWatcherEvent('ww:timeout', { path, attempts: retryCount, elapsed: timeout });
-
-        if (retryCount < retries) {
-          retryCount++;
-          const value = resolvePath(window, path);
-          if (predicate(value)) {
-            settled = true;
-            cleanup();
-            dispose();
-            resolve(value as T);
-            return;
-          }
-          const retryInterval = pollInterval > 0 ? pollInterval : DEFAULT_POLL_INTERVAL;
-          timeoutId = setTimeout(onTimeout, retryInterval);
-          return;
-        }
-
-        settled = true;
-        cleanup();
-        dispose();
-        reject(new Error(`windotwatchr: timeout after ${timeout}ms waiting for "${path}"`));
-      };
-
-      timeoutId = setTimeout(onTimeout, timeout);
-    }
-
-    // --- AbortSignal ---
-    let onAbort: (() => void) | null = null;
-
-    if (signal) {
-      onAbort = (): void => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        if (timeoutId) { clearTimeout(timeoutId); }
-        dispose();
-        reject(new Error('windotwatchr: aborted'));
-      };
-
-      if (signal.aborted) {
-        onAbort();
-        return;
-      }
-      signal.addEventListener('abort', onAbort, { once: true });
-    }
+    const settleReject = (error: unknown): void => {
+      if (settled) {return;}
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const settleResolve = (value: unknown): void => {
+      if (settled) {return;}
+      settled = true;
+      cleanup();
+      resolve(value as T);
+    };
+    const onAbort = (): void => settleReject(abortReason());
+    try {
+      validateOptions(options ?? {});
+      if (signal?.aborted) { onAbort(); return; }
+      signal?.addEventListener('abort', onAbort, { once: true });
+      const { signal: _signal, ...watchOptions } = options ?? {};
+      dispose = watch(path, settleResolve, {
+        ...watchOptions, correlationId: options?.correlationId ?? `ww_wait_${++runtimeState.sequence}`,
+      }, { timeout: detail => {
+        if (detail.attempts >= (options?.retries ?? 0)) {settleReject(makeTimeoutError(path, options!.timeout!));}
+      } });
+      if (settled) {dispose();}
+      else if (signal?.aborted) {onAbort();}
+    } catch (error) { settleReject(error); }
   });
 }

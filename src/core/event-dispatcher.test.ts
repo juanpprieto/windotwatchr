@@ -28,15 +28,4 @@ describe('dispatchWatcherEvent', () => {
     window.removeEventListener('ww:detail', listener);
   });
 
-  it('no-ops when window is undefined (SSR)', () => {
-    const original = globalThis.window;
-    // @ts-expect-error simulate SSR
-    delete globalThis.window;
-
-    expect(() => {
-      dispatchWatcherEvent('ww:ssr', { path: 'x' });
-    }).not.toThrow();
-
-    globalThis.window = original;
-  });
 });

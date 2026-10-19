@@ -1,139 +1,156 @@
-import type { SubscriberCallback } from '../types.js';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { notifySubscribers } from './notification-queue.js';
+import { describe, expect, it, vi } from 'vitest';
+import { scheduleDeliveries } from './notification-queue.js';
+import type { Subscription } from './subscription-manager.js';
 
-describe('notifySubscribers', () => {
-  afterEach(() => {
-    // Remove any leftover event listeners
-  });
+/**
+ * Build a Subscription test double. Mirrors the real record shape so the
+ * queue exercises production readiness, disposal and event identity.
+ */
+function makeSub(
+  callback: (value: unknown) => void,
+  overrides: Partial<Subscription> = {},
+): Subscription {
+  return {
+    callback,
+    predicate: (v) => v !== null && v !== undefined,
+    id: 'test-id',
+    disposed: false,
+    delivery: 'all',
+    hasObserved: false, observedValue: undefined, observedReady: false, detectionFailed: false, observers: {},
+    dispose: () => {},
+    ...overrides,
+  };
+}
 
-  it('delivers value to all subscribers asynchronously', async () => {
+describe('scheduleDeliveries', () => {
+  it('delivers value to all subscriptions asynchronously', async () => {
     const cb1 = vi.fn();
     const cb2 = vi.fn();
-    const subs = new Set<SubscriberCallback>([cb1, cb2]);
+    const sub1 = makeSub(cb1);
+    const sub2 = makeSub(cb2);
 
-    notifySubscribers(subs, 'Stripe', { id: 1 });
+    scheduleDeliveries([
+      { sub: sub1, path: 'Stripe', value: { id: 1 } },
+      { sub: sub2, path: 'Stripe', value: { id: 1 } },
+    ]);
 
     // Synchronously: not yet called
     expect(cb1).not.toHaveBeenCalled();
     expect(cb2).not.toHaveBeenCalled();
 
-    // After microtask flush
     await Promise.resolve();
     expect(cb1).toHaveBeenCalledWith({ id: 1 });
     expect(cb2).toHaveBeenCalledWith({ id: 1 });
   });
 
   it('isolates callback errors — one throwing does not break others', async () => {
-    const cb1 = vi.fn(() => {
-      throw new Error('cb1 exploded');
-    });
+    const cb1 = vi.fn(() => { throw new Error('cb1 exploded'); });
     const cb2 = vi.fn();
-    const subs = new Set<SubscriberCallback>([cb1, cb2]);
 
-    notifySubscribers(subs, 'Stripe', 'val');
+    scheduleDeliveries([
+      { sub: makeSub(cb1), path: 'Stripe', value: 'val' },
+      { sub: makeSub(cb2), path: 'Stripe', value: 'val' },
+    ]);
 
     await Promise.resolve();
     expect(cb1).toHaveBeenCalledWith('val');
     expect(cb2).toHaveBeenCalledWith('val');
   });
 
-  it('snapshots subscribers before scheduling to avoid mutation during iteration', async () => {
+  it('skips a subscription disposed between schedule and delivery', async () => {
+    const cb = vi.fn();
+    const sub = makeSub(cb);
+
+    scheduleDeliveries([{ sub, path: 'SDK', value: 'val' }]);
+    // Dispose lands before the microtask runs
+    sub.disposed = true;
+
+    await Promise.resolve();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('preserves separate intercepted occurrences even for equal values', async () => {
+    const cb = vi.fn();
+    const sub = makeSub(cb);
+    const value = { same: true };
+
+    scheduleDeliveries([{ sub, path: 'SDK', value }]);
+    await Promise.resolve();
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    // Each scheduled record is a distinct occurrence; snapshot dedup happens before queueing.
+    scheduleDeliveries([{ sub, path: 'SDK', value }]);
+    await Promise.resolve();
+    expect(cb).toHaveBeenCalledTimes(2);
+
+    // A different reference → delivered
+    scheduleDeliveries([{ sub, path: 'SDK', value: { same: true } }]);
+    await Promise.resolve();
+    expect(cb).toHaveBeenCalledTimes(3);
+  });
+
+  it('handles empty delivery list without error', async () => {
+    expect(() => scheduleDeliveries([])).not.toThrow();
+    await Promise.resolve();
+  });
+
+  it('snapshots the batch before scheduling', async () => {
     const cb1 = vi.fn();
-    const subs = new Set<SubscriberCallback>([cb1]);
+    const deliveries = [{ sub: makeSub(cb1), path: 'X', value: 42 }];
+    scheduleDeliveries(deliveries);
 
-    notifySubscribers(subs, 'X', 42);
-
-    // Add a new subscriber after notify was called but before microtask runs
+    // Mutating the array after the call must not add deliveries
     const cb2 = vi.fn();
-    subs.add(cb2);
+    deliveries.push({ sub: makeSub(cb2), path: 'X', value: 99 });
 
     await Promise.resolve();
     expect(cb1).toHaveBeenCalledWith(42);
-    // cb2 was added after snapshot — should NOT be called
     expect(cb2).not.toHaveBeenCalled();
   });
 
-  it('handles empty subscriber set without error', async () => {
-    const subs = new Set<SubscriberCallback>();
-    expect(() => {
-      notifySubscribers(subs, 'X', 'val');
-    }).not.toThrow();
-    await Promise.resolve();
-  });
-
-  it('handles re-entrancy — callback triggering another notify', async () => {
-    const order: string[] = [];
-    const subs2 = new Set<SubscriberCallback>();
-
-    const cb1: SubscriberCallback = () => {
-      order.push('cb1');
-      // Trigger another notification from within callback
-      notifySubscribers(subs2, 'Y', 'inner');
-    };
-    const cb2: SubscriberCallback = () => {
-      order.push('cb2');
-    };
-
-    const subs1 = new Set<SubscriberCallback>([cb1]);
-    subs2.add(cb2);
-
-    notifySubscribers(subs1, 'X', 'outer');
-
-    // Flush all microtasks
-    await new Promise((r) => setTimeout(r, 10));
-    expect(order).toEqual(['cb1', 'cb2']);
-  });
-
-  it('dispatches ww:error when a subscriber throws', async () => {
+  it('dispatches ww:error carrying the subscription id when a callback throws', async () => {
     const error = new Error('boom');
-    const cb = vi.fn(() => { throw error; });
-    const subs = new Set<SubscriberCallback>([cb]);
+    const sub = makeSub(() => { throw error; }, { id: 'sub-77' });
 
     const listener = vi.fn();
     window.addEventListener('ww:error', listener);
 
-    notifySubscribers(subs, 'SDK', 'val');
+    scheduleDeliveries([{ sub, path: 'SDK', value: 'val' }]);
     await Promise.resolve();
 
     expect(listener).toHaveBeenCalledTimes(1);
     const event = listener.mock.calls[0]![0] as CustomEvent;
-    expect(event.detail).toEqual({ path: 'SDK', error });
+    expect(event.detail).toEqual({ path: 'SDK', error, id: 'sub-77' });
 
     window.removeEventListener('ww:error', listener);
   });
 
-  it('dispatches ww:ready on every notification call', async () => {
-    const cb = vi.fn();
-    const subs = new Set<SubscriberCallback>([cb]);
+  it('ww:ready detail contains path, value, and id', async () => {
+    const sub = makeSub(vi.fn(), { id: 'sub-9' });
 
     const listener = vi.fn();
     window.addEventListener('ww:ready', listener);
 
-    notifySubscribers(subs, 'Stripe', { v: 1 });
+    scheduleDeliveries([{ sub, path: 'Stripe.checkout', value: { sdk: true } }]);
     await Promise.resolve();
 
-    notifySubscribers(subs, 'Stripe', { v: 2 });
-    await Promise.resolve();
-
-    expect(listener).toHaveBeenCalledTimes(2);
+    const event = listener.mock.calls[0]![0] as CustomEvent;
+    expect(event.detail).toEqual({ path: 'Stripe.checkout', value: { sdk: true }, id: 'sub-9' });
 
     window.removeEventListener('ww:ready', listener);
   });
 
-  it('ww:ready detail contains path and value', async () => {
-    const cb = vi.fn();
-    const subs = new Set<SubscriberCallback>([cb]);
+  it('handles re-entrancy — a callback scheduling another delivery', async () => {
+    const order: string[] = [];
+    const inner = makeSub(() => { order.push('inner'); });
+    const outer = makeSub(() => {
+      order.push('outer');
+      scheduleDeliveries([{ sub: inner, path: 'Y', value: 'v' }]);
+    });
 
-    const listener = vi.fn();
-    window.addEventListener('ww:ready', listener);
+    scheduleDeliveries([{ sub: outer, path: 'X', value: 'v' }]);
 
-    notifySubscribers(subs, 'Stripe.checkout', { sdk: true });
-    await Promise.resolve();
-
-    const event = listener.mock.calls[0]![0] as CustomEvent;
-    expect(event.detail).toEqual({ path: 'Stripe.checkout', value: { sdk: true } });
-
-    window.removeEventListener('ww:ready', listener);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(order).toEqual(['outer', 'inner']);
   });
 });

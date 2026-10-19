@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createProxyWrapper } from './proxy-wrapper.js';
 import { installTrap } from './property-trap.js';
 import { SubscriptionManager } from './subscription-manager.js';
+import { watch } from './windot-watcher.js';
 
 describe('installTrap', () => {
   const ROOT = '__ww_test_prop__';
@@ -16,13 +17,10 @@ describe('installTrap', () => {
     }
   });
 
-  function setup(opts?: { pollInterval?: number; readyPredicate?: (v: unknown) => boolean }) {
+  function setup() {
     const subManager = new SubscriptionManager();
     const proxyWrapper = createProxyWrapper(subManager);
-    const dispose = installTrap(ROOT, subManager, proxyWrapper, {
-      pollInterval: opts?.pollInterval ?? 0, // disable poll in most tests
-      readyPredicate: opts?.readyPredicate,
-    });
+    const dispose = installTrap(ROOT, subManager, proxyWrapper);
     return { subManager, proxyWrapper, dispose };
   }
 
@@ -93,9 +91,9 @@ describe('installTrap', () => {
     dispose();
   });
 
-  it('falls back to polling when value is frozen', async () => {
+  it('observes root assignment even when the assigned value is frozen', async () => {
     vi.useFakeTimers();
-    const { subManager, dispose } = setup({ pollInterval: 50 });
+    const { subManager, dispose } = setup();
     const cb = vi.fn();
     subManager.subscribe(ROOT, cb);
 
@@ -119,7 +117,7 @@ describe('installTrap', () => {
     const cb = vi.fn();
     subManager.subscribe(ROOT, cb);
 
-    const dispose = installTrap(ROOT, subManager, proxyWrapper, { pollInterval: 0 });
+    const dispose = installTrap(ROOT, subManager, proxyWrapper);
 
     await Promise.resolve();
     expect(cb).toHaveBeenCalledTimes(1);
@@ -139,7 +137,7 @@ describe('installTrap', () => {
     const cb = vi.fn();
     subManager.subscribe(ROOT, cb);
 
-    const dispose = installTrap(ROOT, subManager, proxyWrapper, { pollInterval: 0 });
+    const dispose = installTrap(ROOT, subManager, proxyWrapper);
 
     await Promise.resolve();
     expect(cb).toHaveBeenCalledTimes(1);
@@ -193,7 +191,7 @@ describe('installTrap', () => {
     const listener = vi.fn();
     window.addEventListener('ww:warning', listener);
 
-    const { dispose } = setup({ pollInterval: 0 });
+    const { dispose } = setup();
     (window as unknown as Record<string, unknown>)[ROOT] = Object.freeze({ api: true });
 
     expect(listener).toHaveBeenCalledTimes(1);
@@ -208,7 +206,7 @@ describe('installTrap', () => {
     const listener = vi.fn();
     window.addEventListener('ww:warning', listener);
 
-    const { dispose } = setup({ pollInterval: 0 });
+    const { dispose } = setup();
     (window as unknown as Record<string, unknown>)[ROOT] = Object.seal({ api: true });
 
     expect(listener).toHaveBeenCalledTimes(1);
@@ -231,7 +229,7 @@ describe('installTrap', () => {
 
     const subManager = new SubscriptionManager();
     const proxyWrapper = createProxyWrapper(subManager);
-    const dispose = installTrap(ROOT, subManager, proxyWrapper, { pollInterval: 0 });
+    const dispose = installTrap(ROOT, subManager, proxyWrapper);
 
     expect(listener).toHaveBeenCalledTimes(1);
     const event = listener.mock.calls[0]![0] as CustomEvent;
@@ -241,7 +239,7 @@ describe('installTrap', () => {
     dispose();
   });
 
-  it('falls back to polling when defineProperty fails', async () => {
+  it('the watcher owns polling when root interception is unavailable', async () => {
     vi.useFakeTimers();
 
     // Pre-define with configurable: false to make our trap fail
@@ -251,14 +249,8 @@ describe('installTrap', () => {
       configurable: false,
     });
 
-    const subManager = new SubscriptionManager();
-    const proxyWrapper = createProxyWrapper(subManager);
     const cb = vi.fn();
-    subManager.subscribe(ROOT, cb);
-
-    const dispose = installTrap(ROOT, subManager, proxyWrapper, {
-      pollInterval: 50,
-    });
+    const dispose = watch(ROOT, cb, { pollInterval: 50 });
 
     // Set value via direct assignment (our trap didn't install)
     (window as unknown as Record<string, unknown>)[ROOT] = { fallback: true };

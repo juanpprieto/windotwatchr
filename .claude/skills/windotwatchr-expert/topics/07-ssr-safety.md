@@ -1,171 +1,143 @@
-# SSR Safety
+# SSR safety
 
-## Browser Detection
+## Environment detection
+
+The core entry evaluates this guarded check at module load:
 
 ```ts
 const isBrowser = typeof window !== 'undefined';
 ```
 
-Evaluated once at module load. No `window` reference at import time — safe for:
-- Node.js
-- Cloudflare Workers
-- Vercel Edge Runtime
-- Deno Deploy
-- Any non-browser JavaScript runtime
+When `window` is absent, imports do not access it. Node and Bun server imports
+have dedicated checks. Other runtimes with no `window` follow the same guard;
+this is not evidence that detection works in Workers or worklets. A runtime
+that supplies `window` still needs the browser APIs used by the selected route.
 
-## API Behavior in SSR
+## Behavior without window
 
-### `watchWindot` → No-op dispose
+| API | Server behavior |
+|---|---|
+| `watchWindot` | Returns a no-op callable disposer; never invokes the callback |
+| `waitForWindot` | Rejects with `Error('windotwatchr: window is not available')` |
+| `useWatchWindot` | Renders `{ value: null, status: 'watching', error: null }`; its effect does not run |
+| Internal event dispatch | Does nothing when `window` is absent |
 
-```ts
-export function watchWindot<T>(path, callback, options?): DisposeFunction {
-  if (!isBrowser) return noop; // () => {}
-  return watch(path, callback, options);
-}
-```
+Handle rejected server waits if you call them. The rejection prevents an
+indefinite wait; it does not initialize an SDK on the server.
 
-- Returns `() => {}` immediately
-- Callback is **never invoked**
-- No side effects
+## Next.js components
 
-### `waitForWindot` → Rejects immediately
-
-```ts
-export function waitForWindot<T>(path, options?): Promise<T> {
-  if (!isBrowser) {
-    return Promise.reject(new Error('windotwatchr: window is not available'));
-  }
-  // ...
-}
-```
-
-- Rejects with descriptive error
-- **Does NOT hang** — critical for SSR where there's no timeout default
-- Without this guard, `await waitForWindot('Stripe')` would hang forever in SSR
-
-### `useWatchWindot` → Watching state, no effect
-
-- Renders with `{ value: null, status: 'watching', error: null }`
-- `useEffect` does not run on the server
-- Safe for server-side rendering
-
-### `dispatchWatcherEvent` → No-op
-
-```ts
-export function dispatchWatcherEvent(name, detail): void {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new CustomEvent(name, { detail }));
-}
-```
-
-## Next.js Patterns
-
-### App Router (Server Components)
+In the App Router, put hooks in a Client Component and render it from the page.
+Client Components can still render to HTML on the server or during a static
+build; `'use client'` does not make render-time access to `window` safe.
 
 ```tsx
-// app/payments/page.tsx — Server Component
-// Cannot use hooks directly. Render a Client Component:
-
-import PaymentLoader from './PaymentLoader';
-
-export default function PaymentsPage() {
-  return <PaymentLoader />;
-}
-```
-
-```tsx
-// app/payments/PaymentLoader.tsx
 'use client';
 
 import { useWatchWindot } from 'windotwatchr/react';
 
-export default function PaymentLoader() {
-  const { value, status } = useWatchWindot('Stripe');
-  // ...
+export function SDKStatus() {
+  const { status, error } = useWatchWindot<() => void>('acmeSDK.initialize', {
+    ready: candidate => typeof candidate === 'function',
+    timeout: 5_000,
+  });
+
+  return <p>{error?.message ?? status}</p>;
 }
 ```
 
-### Pages Router (getServerSideProps)
+Pages Router components can use the same hook without the `'use client'`
+directive. Server rendering produces the initial watching state; detection
+starts in the browser effect after hydration.
 
-```tsx
-// pages/payments.tsx
-import { useWatchWindot } from 'windotwatchr/react';
+The repository's Next.js example uses `output: 'export'`: its production pages
+are rendered at build time and hydrated in the browser. This checks prerendering
+and hydration, rather than per-request SSR. See
+[Next.js static exports](https://nextjs.org/docs/app/guides/static-exports).
 
-export default function PaymentsPage() {
-  // Safe — hook no-ops during SSR, runs on client after hydration
-  const { value: stripe, status } = useWatchWindot<Stripe>('Stripe');
+## A cancellable wait in an effect
 
-  if (!stripe) return <div>Loading...</div>;
-  return <StripeForm stripe={stripe} />;
-}
-```
-
-### Imperative in useEffect
+This example uses the fictional Maps SDK from the repository demos. It waits for
+the constructor, since `acme.maps` can exist before `acme.maps.Map`. The signal
+ends a pending wait on unmount, and cleanup destroys a map that was created.
 
 ```tsx
 'use client';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useRef } from 'react';
 import { waitForWindot } from 'windotwatchr';
 
+interface MapInstance {
+  render(): MapInstance;
+  destroy(): void;
+}
+
+type MapConstructor = new (
+  element: HTMLElement,
+  options: { center: { lat: number; lng: number }; zoom: number },
+) => MapInstance;
+
 export function MapComponent() {
-  const [map, setMap] = useState(null);
+  const elementRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Safe — useEffect only runs in browser
-    waitForWindot('google.maps', { timeout: 5_000 })
-      .then((maps) => {
-        setMap(new maps.Map(document.getElementById('map'), { center, zoom: 12 }));
-      })
-      .catch(console.error);
+    const controller = new AbortController();
+    let map: MapInstance | undefined;
+
+    void waitForWindot<MapConstructor>('acme.maps.Map', {
+      timeout: 5_000,
+      signal: controller.signal,
+      ready: candidate => typeof candidate === 'function',
+    }).then(Map => {
+      if (controller.signal.aborted || !elementRef.current) return;
+      map = new Map(elementRef.current, {
+        center: { lat: 40, lng: -74 },
+        zoom: 12,
+      });
+      map.render();
+    }).catch((reason: unknown) => {
+      if (!controller.signal.aborted) console.error(reason);
+    });
+
+    return () => {
+      controller.abort();
+      map?.destroy();
+    };
   }, []);
 
-  return <div id="map" />;
+  return <div ref={elementRef} style={{ height: 400 }} />;
 }
 ```
 
-## Hydration Considerations
+The type parameter describes the mock constructor; it does not prove that any
+function is constructible. A real SDK integration needs its documented type
+and initialization contract.
 
-The hook always starts with `status: 'watching'` on both server and client. If you render different UI based on status:
+## Hydration
+
+The hook begins in `watching` on both server and client, including when the SDK
+already exists. Detection updates occur after the browser effect runs. Render
+the same initial UI in both environments.
+
+A render branch based solely on browser availability can produce different
+initial markup:
 
 ```tsx
-// SAFE — same initial state server and client:
-if (status === 'watching') return <Skeleton />;
-if (status === 'ready') return <Content value={value} />;
-```
-
-```tsx
-// RISKY — checking typeof window causes hydration mismatch:
-if (typeof window !== 'undefined' && status === 'ready') {
-  // Server: false, Client: potentially true → mismatch
+export function BrowserOnlyStatus() {
+  return typeof window === 'undefined'
+    ? <p>Server</p>
+    : <p>Browser</p>;
 }
 ```
 
-## Edge Runtime Compatibility
+This example mismatches server and initial client rendering. Adding a
+`typeof window` guard does not itself cause a mismatch: the problem is different
+markup. A guard combined with `status === 'ready'` is initially false in both
+environments because the hook starts in `watching`.
 
-windotwatchr works in edge runtimes that have `window` (browser-like). In server-side edge runtimes (Cloudflare Workers, Vercel Edge) where there is no `window`:
+## Validation
 
-- `watchWindot` → no-op
-- `waitForWindot` → rejects
-- No runtime errors
-- No dangling promises
-
-## Testing SSR Behavior
-
-The library has dedicated SSR tests in `src/index.ssr.test.ts`:
-
-```ts
-// Runs in jsdom with window deleted
-describe('SSR (no window)', () => {
-  it('watchWindot returns no-op dispose', () => {
-    const dispose = watchWindot('test', vi.fn());
-    expect(dispose).toBeTypeOf('function');
-    dispose(); // no throw
-  });
-
-  it('waitForWindot rejects immediately', async () => {
-    await expect(waitForWindot('test')).rejects.toThrow(
-      'windotwatchr: window is not available'
-    );
-  });
-});
-```
+`src/index.ssr.test.ts` checks no-window imports, no-op watches, rejected waits
+and internal event dispatch in Vitest's Bun server project. Packed consumer
+checks also import core and React under the recorded Node minimum/current
+runtimes. Browser hydration and server-runtime coverage are separate checks.
